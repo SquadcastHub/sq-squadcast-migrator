@@ -1,0 +1,18 @@
+import os
+from dotenv import load_dotenv
+from pydantic_settings import BaseSettings
+
+load_dotenv()
+
+class Settings(BaseSettings):
+    opsgenie_api_key: str = os.getenv("OPSGENIE_API_KEY", "")
+    opsgenie_api_url: str = os.getenv("OPSGENIE_API_URL", "https://api.opsgenie.com/v2")
+    
+    squadcast_refresh_token: str = os.getenv("SQUADCAST_REFRESH_TOKEN", "")
+    squadcast_api_url: str = os.getenv("SQUADCAST_API_URL", "https://api.squadcast.com/v3")
+    squadcast_auth_url: str = os.getenv("SQUADCAST_AUTH_URL", "https://auth.squadcast.com/oauth/access-token")
+    
+    dry_run: bool = os.getenv("DRY_RUN", "True").lower() == "true"
+    log_level: str = os.getenv("LOG_LEVEL", "INFO")
+
+settings = Settings()
