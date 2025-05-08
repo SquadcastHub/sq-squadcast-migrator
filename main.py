@@ -64,10 +64,10 @@ def cli(ctx, opsgenie_api_key: Optional[str], squadcast_refresh_token: Optional[
 @click.pass_context
 def migrate_users(ctx):
     """Migrate users from OpsGenie to Squadcast."""
-    opsgenie_client = ctx.obj['opsgenie_client']
+    source_client = ctx.obj['opsgenie_client']
     squadcast_client = ctx.obj['squadcast_client']
     
-    migrator = UserMigrator(opsgenie_client, squadcast_client)
+    migrator = UserMigrator(source_client, squadcast_client)
     result = migrator.migrate()
     ctx.obj['user_migration_map'] = result.get('migration_map', {})
     
