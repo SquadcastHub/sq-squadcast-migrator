@@ -3,6 +3,7 @@ from typing import Dict, Any, List
 from src.alerting_client import AlertingClient
 from src.squadcast.client import SquadcastClient
 from tqdm import tqdm
+from config.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +31,10 @@ class TeamMigrator:
         Returns:
             Dictionary with migration statistics
         """
-        logger.info("Starting team migration to Squadcast")
+        logger.info(f"Starting team migration from {settings.system} to Squadcast")
         
         source_teams = self.source_client.get_teams()
-        logger.info(f"Found {len(source_teams)} teams in source system")
+        logger.info(f"Found {len(source_teams)} teams in {settings.system}")
         
         success_count = 0
         failure_count = 0

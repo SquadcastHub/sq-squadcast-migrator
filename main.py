@@ -17,28 +17,26 @@ os.makedirs('logs', exist_ok=True)
 
 log_filename = f"logs/migration_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
 
-# Set up logging
-logging.basicConfig(
-    level=settings.log_level,
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler(log_filename)
-    ],
-)
+log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+custom_formatter = formatter.CustomFormatter(log_format)
+
+# Configure root logger for all modules
+root_logger = logging.getLogger()
+root_logger.setLevel(settings.log_level)
+root_logger.handlers.clear()
+
+# Add console handler
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setFormatter(custom_formatter)
+root_logger.addHandler(console_handler)
+
+# Add file handler
+file_handler = logging.FileHandler(log_filename)
+file_handler.setFormatter(custom_formatter)
+root_logger.addHandler(file_handler)
 
 logger = logging.getLogger(__name__)
-
-stdout_handler = logging.StreamHandler()
-stdout_handler.setFormatter(formatter.CustomFormatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
-logger.addHandler(stdout_handler)
-
-file_handler = logging.FileHandler(log_filename)
-file_handler.setFormatter(formatter.CustomFormatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
-logger.addHandler(file_handler)
-logger.setLevel(settings.log_level)
-
-for handler in logging.root.handlers:
-    handler.setFormatter(formatter.CustomFormatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+logger.propagate = True
 
 logger.info(f"Logs will be stored in: {log_filename}")
 
@@ -54,7 +52,7 @@ def cli(ctx, opsgenie_api_key: Optional[str], pagerduty_api_token: Optional[str]
         system: Optional[str],
         dry_run: bool, verbose: bool):
     """
-    OpsGenie to Squadcast Migration Tool.
+    Squadcast Migration Tool.
     """
     if verbose:
         logging.getLogger().setLevel(logging.DEBUG)
@@ -104,7 +102,7 @@ def migrate_users(ctx):
 @cli.command('migrate-teams')
 @click.pass_context
 def migrate_teams(ctx):
-    """Migrate teams from OpsGenie to Squadcast."""
+    """Migrate teams to Squadcast."""
     source_client = ctx.obj['source_client']
     squadcast_client = ctx.obj['squadcast_client']
     
@@ -124,8 +122,8 @@ def migrate_teams(ctx):
 @cli.command('migrate-all')
 @click.pass_context
 def migrate_all(ctx):
-    """Migrate all entities from OpsGenie to Squadcast."""
-    logger.info("Starting full migration from OpsGenie to Squadcast")
+    """Migrate all entities to Squadcast."""
+    logger.info(f"Starting full migration from {settings.system} to Squadcast")
     
     ctx.invoke(migrate_users)
     ctx.invoke(migrate_teams)

@@ -3,6 +3,7 @@ from typing import Dict, Any
 from src.alerting_client import AlertingClient
 from src.squadcast.client import SquadcastClient
 from tqdm import tqdm
+from config.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -28,10 +29,10 @@ class UserMigrator:
         Returns:
             Dictionary with migration statistics
         """
-        logger.info("Starting user migration to Squadcast")
+        logger.info(f"Starting user migration from {settings.system} to Squadcast")
         
         source_users = self.source_client.get_users()
-        logger.info(f"Found {len(source_users)} users in source system")
+        logger.info(f"Found {len(source_users)} users in {settings.system}")
         
         success_count = 0
         failure_count = 0
