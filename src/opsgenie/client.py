@@ -64,8 +64,22 @@ class OpsGenieClient(AlertingClient):
     
     def get_users(self) -> List[Dict[str, Any]]:
         logger.info("Fetching users from OpsGenie")
-        response = self._make_request("GET", "users")
-        return response.get("data", [])
+        all_users = []
+        limit = 100
+        offset = 0
+
+        while True:
+            params = {"limit": limit, "offset": offset, "order": "ASC", "sort": "username"}
+            response = self._make_request("GET", "users", params=params)
+            users = response.get("data", [])
+            all_users.extend(users)
+
+            if len(users) < limit:
+                break
+
+            offset += limit
+
+        return all_users
     
     def transform_team(self, team: Dict[str, Any]) -> Dict[str, Any]:
         return {

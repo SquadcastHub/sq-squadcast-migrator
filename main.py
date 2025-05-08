@@ -34,7 +34,7 @@ logger.info(f"Logs will be stored in: {log_filename}")
 @click.option('--opsgenie-api-key', '-o', help='OpsGenie API key')
 @click.option('--pagerduty-api-token', '-p', help='PagerDuty API token')
 @click.option('--squadcast-refresh-token', '-s', help='Squadcast refresh token')
-@click.option('--dry-run/--no-dry-run', default=False, 
+@click.option('--dry-run', default=True, 
               help='Run in dry-run mode (no actual changes)')
 @click.option('--verbose', '-v', is_flag=True, help='Verbose output')
 @click.pass_context
