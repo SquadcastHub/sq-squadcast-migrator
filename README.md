@@ -1,13 +1,13 @@
-# OpsGenie to Squadcast Migrator
+# Alerting System to Squadcast Migrator
 
-A tool to migrate data from OpsGenie to Squadcast.
+A tool to migrate data from alerting systems like OpsGenie, PagerDuty to Squadcast.
 
 ## Features
 
-- Migrate data from OpsGenie to Squadcast
+- Migrate data from various alerting systems to Squadcast
+- Generic `AlertingClient` interface for easy integration with new alerting systems
 - Dry-run mode to preview migration without making any changes
 - Command-line interface with clear options
-- Extensible architecture for adding more migration types
 
 ## Installation
 
@@ -31,11 +31,14 @@ You can configure the migrator in two ways:
 Create a `.env` file in the root directory with the following content:
 
 ```
+SYSTEM=opsgenie
+PAGERDUTY_API_TOKEN=your_pagerduty_token_here
+PAGERDUTY_API_URL=https://api.pagerduty.com
 OPSGENIE_API_KEY=your_opsgenie_api_key
 OPSGENIE_API_URL=https://api.opsgenie.com/v2
 SQUADCAST_REFRESH_TOKEN=your_squadcast_refresh_token
 SQUADCAST_API_URL=https://api.squadcast.com/v3
-SQUADCAST_AUTH_URL=https://auth.squadcast.com/oauth/access-token
+SQUADCAST_AUTH_URL=https://auth.squadcast.com/oauth-access-token
 DRY_RUN=False
 LOG_LEVEL=INFO
 ```
@@ -45,14 +48,15 @@ LOG_LEVEL=INFO
 Alternatively, you can provide configuration via command-line arguments:
 
 ```bash
-python main.py --opsgenie-api-key YOUR_KEY --squadcast-refresh-token YOUR_TOKEN migrate-users
+python main.py --system opsgenie --opsgenie-api-key YOUR_KEY --squadcast-refresh-token YOUR_TOKEN migrate-users
+python main.py --system pagerduty --pagerduty-api-token YOUR_TOKEN --squadcast-refresh-token YOUR_TOKEN migrate-users
 ```
 
 ## Usage
 
 ### Migrating Users
 
-To migrate users from OpsGenie to Squadcast:
+To migrate users to Squadcast:
 
 ```bash
 python main.py migrate-users
@@ -86,6 +90,9 @@ opsgenie-squadcast-migrator/
 │   ├── opsgenie/           # OpsGenie API client
 │   │   ├── __init__.py
 │   │   └── client.py
+│   ├── pagerduty/           # Pagerduty API client
+│   │   ├── __init__.py
+│   │   └── client.py
 │   ├── squadcast/          # Squadcast API client
 │   │   ├── __init__.py
 │   │   └── client.py
@@ -99,5 +106,5 @@ opsgenie-squadcast-migrator/
 To add a new migration type:
 
 1. Create a new migrator class in the `src/migrators` directory
-2. Implement the necessary client methods in `src/opsgenie/client.py` and `src/squadcast/client.py`
+2. Implement the necessary client methods in `src/<alerting_system>/client.py` and `src/squadcast/client.py`
 3. Add a new command to the CLI in `main.py`

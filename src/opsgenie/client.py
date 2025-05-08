@@ -1,11 +1,12 @@
 import requests
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Set
 import logging
 from config.config import settings
+from src.alerting_client import AlertingClient
 
 logger = logging.getLogger(__name__)
 
-class OpsGenieClient:
+class OpsGenieClient(AlertingClient):
     """Client for the OpsGenie API."""
     
     def __init__(self, api_key: Optional[str] = None, api_url: Optional[str] = None):
@@ -48,14 +49,45 @@ class OpsGenieClient:
             logger.error(f"Request error: {e}")
             raise
     
-    # Define methods to interact with OpsGenie API
+    def transform_user(self, user: Dict[str, Any]) -> Dict[str, Any]:
+        full_name = user.get('fullName', '')
+        name_parts = full_name.split(' ', 1)
+        first_name = name_parts[0] if len(name_parts) > 0 else ''
+        last_name = name_parts[1] if len(name_parts) > 1 else ''
+        
+        return {
+            "first_name": first_name,
+            "last_name": last_name,
+            "email": user.get("username"),
+            "role": "user",
+        }
+    
     def get_users(self) -> List[Dict[str, Any]]:
         logger.info("Fetching users from OpsGenie")
         response = self._make_request("GET", "users")
         return response.get("data", [])
     
+    def transform_team(self, team: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "name": team.get("name"),
+            "description": team.get("description"),
+            "members": [], # TODO: Populate with actual members
+        }
+    
     def get_teams(self) -> List[Dict[str, Any]]:
         logger.info("Fetching teams from OpsGenie")
         response = self._make_request("GET", "teams")
         return response.get("data", [])
+    
+    def get_escalation_policies(self) -> List[Dict[str, Any]]:
+        logger.info("Fetching escalation policies from OpsGenie")
+        return []
+    
+    def get_schedules(self) -> List[Dict[str, Any]]:
+        logger.info("Fetching schedules from OpsGenie")
+        return []
+    
+    def get_services(self) -> List[Dict[str, Any]]:
+        logger.warning("Services feature is not supported in OpsGenie")
+        return []
     # Add more methods as needed
