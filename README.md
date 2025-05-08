@@ -4,7 +4,7 @@ A tool to migrate data from alerting systems like OpsGenie, PagerDuty to Squadca
 
 ## Features
 
-- Migrate data from various alerting systems to Squadcast
+- Migrate data from various alerting systems to Squadcast (users, teams, escalation policies, schedules etc.)
 - Generic `AlertingClient` interface for easy integration with new alerting systems
 - Dry-run mode to preview migration without making any changes
 - Command-line interface with clear options
@@ -13,8 +13,8 @@ A tool to migrate data from alerting systems like OpsGenie, PagerDuty to Squadca
 
 1. Clone this repository:
 ```bash
-git clone https://github.com/SquadcastHub/opsgenie-squadcast-migrator.git
-cd opsgenie-squadcast-migrator
+git clone https://github.com/SquadcastHub/squadcast-migrator.git
+cd squadcast-migrator
 ```
 
 2. Install the required dependencies:
@@ -48,8 +48,8 @@ LOG_LEVEL=INFO
 Alternatively, you can provide configuration via command-line arguments:
 
 ```bash
-python main.py --system opsgenie --opsgenie-api-key YOUR_KEY --squadcast-refresh-token YOUR_TOKEN migrate-users
-python main.py --system pagerduty --pagerduty-api-token YOUR_TOKEN --squadcast-refresh-token YOUR_TOKEN migrate-users
+python main.py --dry-run --system opsgenie --opsgenie-api-key YOUR_KEY --squadcast-refresh-token YOUR_TOKEN migrate-users
+python main.py --dry-run --system pagerduty --pagerduty-api-token YOUR_TOKEN --squadcast-refresh-token YOUR_TOKEN migrate-users
 ```
 
 ## Usage
