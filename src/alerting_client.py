@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 
 class AlertingClient(ABC):
     """
@@ -10,7 +10,7 @@ class AlertingClient(ABC):
     @abstractmethod
     def transform_user(self, user: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Transform a user object from the alerting system to a squadcast format.
+        Transform a user object from the alerting system to a Squadcast format.
         
         Returns:
             Transformed user object.
@@ -28,7 +28,7 @@ class AlertingClient(ABC):
         pass
 
     @abstractmethod
-    def transform_team(self, team: Dict[str, Any]) -> Dict[str, Any]:
+    def transform_team(self, team: Dict[str, Any], user_migration_map: Dict[str, str] = None) -> Dict[str, Any]:
         """
         Transform a team object from the alerting system to a squadcast format.
         
@@ -44,6 +44,19 @@ class AlertingClient(ABC):
         
         Returns:
             List of team objects.
+        """
+        pass
+    
+    @abstractmethod
+    def get_team_details(self, team_id: str) -> Dict[str, Any]:
+        """
+        Get detailed information for a specific team, including its members.
+        
+        Args:
+            team_id: ID of the team to get details for
+            
+        Returns:
+            Team object with detailed information including members.
         """
         pass
     

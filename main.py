@@ -10,6 +10,8 @@ from config.config import settings
 from src.opsgenie.client import OpsGenieClient
 from src.squadcast.client import SquadcastClient
 from src.migrators.user_migrator import UserMigrator
+from src.migrators.team_migrator import TeamMigrator
+from src.logging import formatter
 
 os.makedirs('logs', exist_ok=True)
 
@@ -18,24 +20,34 @@ log_filename = f"logs/migration_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
 # Set up logging
 logging.basicConfig(
     level=settings.log_level,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
         logging.FileHandler(log_filename)
-    ]
+    ],
 )
 
 logger = logging.getLogger(__name__)
+
+stdout_handler = logging.StreamHandler()
+stdout_handler.setFormatter(formatter.CustomFormatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+logger.addHandler(stdout_handler)
+
+file_handler = logging.FileHandler(log_filename)
+file_handler.setFormatter(formatter.CustomFormatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+logger.addHandler(file_handler)
+logger.setLevel(settings.log_level)
+
+for handler in logging.root.handlers:
+    handler.setFormatter(formatter.CustomFormatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+
 logger.info(f"Logs will be stored in: {log_filename}")
 
 @click.group()
-@click.option('--system', '-s', type=click.Choice(['opsgenie', 'pagerduty'], case_sensitive=False),
-                help='Source alerting system to migrate from (opsgenie or pagerduty)')
+@click.option('--system', '-s', type=click.Choice(['opsgenie', 'pagerduty'], case_sensitive=False), help='Source alerting system to migrate from (opsgenie or pagerduty)')
 @click.option('--opsgenie-api-key', '-o', help='OpsGenie API key')
 @click.option('--pagerduty-api-token', '-p', help='PagerDuty API token')
 @click.option('--squadcast-refresh-token', '-s', help='Squadcast refresh token')
-@click.option('--dry-run', default=True, 
-              help='Run in dry-run mode (no actual changes)')
+@click.option('--dry-run/--no-dry-run', default=True, is_flag=True, help='Run in dry-run mode (no actual changes)')
 @click.option('--verbose', '-v', is_flag=True, help='Verbose output')
 @click.pass_context
 def cli(ctx, opsgenie_api_key: Optional[str], pagerduty_api_token: Optional[str], squadcast_refresh_token: Optional[str], 
@@ -84,7 +96,27 @@ def migrate_users(ctx):
     result = migrator.migrate()
     ctx.obj['user_migration_map'] = result.get('migration_map', {})
     
-    logger.info("User migration completed.")
+    logger.info("User migration completed successfully ✅")
+    logger.info(f"Total: {result['total']}, Success: {result['success']}, "
+                f"Failed: {result['failure']}, Skipped: {result['skipped']}")
+
+
+@cli.command('migrate-teams')
+@click.pass_context
+def migrate_teams(ctx):
+    """Migrate teams from OpsGenie to Squadcast."""
+    source_client = ctx.obj['source_client']
+    squadcast_client = ctx.obj['squadcast_client']
+    
+    user_migration_map = ctx.obj.get('user_migration_map', {})
+    if not user_migration_map:
+        logger.warning("No user migration map found. Teams will be created without members.")
+    
+    migrator = TeamMigrator(source_client, squadcast_client, user_migration_map)
+    result = migrator.migrate()
+    ctx.obj['team_migration_map'] = result.get('migration_map', {})
+    
+    logger.info("Team migration completed successfully ✅")
     logger.info(f"Total: {result['total']}, Success: {result['success']}, "
                 f"Failed: {result['failure']}, Skipped: {result['skipped']}")
 
@@ -96,9 +128,11 @@ def migrate_all(ctx):
     logger.info("Starting full migration from OpsGenie to Squadcast")
     
     ctx.invoke(migrate_users)
-    # Add other migration commands here 
+    ctx.invoke(migrate_teams)
     
-    logger.info("Full migration completed successfully.")
+    # Add other migration commands here as they are implemented
+    
+    logger.info("Full migration completed successfully ✅")
 
 
 if __name__ == '__main__':

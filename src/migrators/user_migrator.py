@@ -39,13 +39,13 @@ class UserMigrator:
         
         for user in tqdm(source_users, desc="Migrating users"):
             try:
-                squadcast_user_data = self.source_client.transform_user(user)
+                sq_user_data = self.source_client.transform_user(user)
                 
-                squadcast_user = self.squadcast_client.create_user(squadcast_user_data)
+                sq_user = self.squadcast_client.create_user(sq_user_data)
                 
-                self.migration_map[user.get("id")] = squadcast_user.get("id")
+                self.migration_map[user.get("id")] = sq_user.get("_id")
                 
-                logger.info(f"Successfully migrated user: {user.get('username')}")
+                logger.info(f"Successfully migrated user: {user.get('username')} ({sq_user.get('_id')})")
                 success_count += 1
                 
             except Exception as e:

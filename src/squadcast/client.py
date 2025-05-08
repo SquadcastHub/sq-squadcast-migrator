@@ -1,5 +1,5 @@
 import requests
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import logging
 from config.config import settings
 
@@ -34,7 +34,7 @@ class SquadcastClient:
                 "Content-Type": "application/json"
             }
             
-            response = requests.post(
+            response = requests.get(
                 self.auth_url,
                 headers=headers
             )
@@ -85,12 +85,21 @@ class SquadcastClient:
     
     # Define methods for creating users, teams, escalation policies, etc.
     def create_user(self, user_data: Dict[str, Any]) -> Dict[str, Any]:
-        logger.info(f"Creating user in Squadcast: {user_data.get('first_name', 'Unknown')} {user_data.get('last_name', 'Unknown')}")
+        logger.info(f"Creating user in Squadcast: {user_data.get('first_name', 'Unknown')} {user_data.get('last_name', 'Unknown')} - ({user_data.get('email', 'Unknown')})")
         if settings.dry_run:
             logger.info("DRY RUN: Would create user in Squadcast")
-            return {"id": "mock_id", "first_name": user_data.get("first_name"), "last_name": user_data.get("last_name"), "email": user_data.get("email"), "dry_run": True}
+            return {"_id": "mock_id", "first_name": user_data.get("first_name"), "last_name": user_data.get("last_name"), "email": user_data.get("email"), "dry_run": True}
         
         response = self._make_request("POST", "users", json_data=user_data)
+        return response.get("data", {})
+    
+    def create_team(self, team_data: Dict[str, Any]) -> Dict[str, Any]:
+        logger.info(f"Creating team in Squadcast: {team_data.get('name', 'Unknown')}")
+        if settings.dry_run:
+            logger.info("DRY RUN: Would create team in Squadcast")
+            return {"_id": "mock_id", "name": team_data.get("name"), "description": team_data.get("description"), "members": team_data.get("members", []), "dry_run": True}
+        
+        response = self._make_request("POST", "teams", json_data=team_data)
         return response.get("data", {})
     
     # Add other methods as needed

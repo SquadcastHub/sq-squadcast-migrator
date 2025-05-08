@@ -49,18 +49,18 @@ class OpsGenieClient(AlertingClient):
             logger.error(f"Request error: {e}")
             raise
     
-    def transform_user(self, user: Dict[str, Any]) -> Dict[str, Any]:
-        full_name = user.get('fullName', '')
+    def transform_user(self, og_user: Dict[str, Any]) -> Dict[str, Any]:
+        full_name = og_user.get('fullName', '')
         name_parts = full_name.split(' ', 1)
-        first_name = name_parts[0] if len(name_parts) > 0 else ''
-        last_name = name_parts[1] if len(name_parts) > 1 else ''
-        
-        return {
-            "first_name": first_name,
-            "last_name": last_name,
-            "email": user.get("username"),
+
+        sq_user = {
+            "first_name": name_parts[0] if len(name_parts) > 0 else '',
+            "last_name": name_parts[1] if len(name_parts) > 1 else '',
+            "email": og_user.get("username"),
             "role": "user",
         }
+        
+        return sq_user
     
     def get_users(self) -> List[Dict[str, Any]]:
         logger.info("Fetching users from OpsGenie")
@@ -81,17 +81,42 @@ class OpsGenieClient(AlertingClient):
 
         return all_users
     
-    def transform_team(self, team: Dict[str, Any]) -> Dict[str, Any]:
+    def transform_team(self, og_team: Dict[str, Any], user_migration_map: Dict[str, str] = None) -> Dict[str, Any]:
+        """
+        Transform a team object from OpsGenie to Squadcast format.
+        
+        Args:
+            team: OpsGenie team object
+            user_migration_map: Optional mapping of OpsGenie user IDs to Squadcast user IDs
+            
+        Returns:
+            Transformed team object for Squadcast
+        """
+        sq_members = []
+        
+        if og_team.get("members") and user_migration_map:
+            for og_member in og_team.get("members", []):
+                user_id = og_member.get("user", {}).get("id")
+                if user_id and user_id in user_migration_map:
+                    sq_members.append(user_migration_map[user_id])
+                else:
+                    logger.warning(f"User {og_member.get('user', {}).get('username')} not found in migration map, skipping")
         return {
-            "name": team.get("name"),
-            "description": team.get("description"),
-            "members": [], # TODO: Populate with actual members
+            "name": og_team.get("name"),
+            "description": og_team.get("description", ""),
+            "members": sq_members,
         }
     
     def get_teams(self) -> List[Dict[str, Any]]:
         logger.info("Fetching teams from OpsGenie")
         response = self._make_request("GET", "teams")
         return response.get("data", [])
+    
+    def get_team_details(self, team_id: str) -> Dict[str, Any]:
+        logger.info(f"Fetching details for team ID: {team_id}")
+        response = self._make_request("GET", f"teams/{team_id}")
+        team_data = response.get("data", {})
+        return team_data
     
     def get_escalation_policies(self) -> List[Dict[str, Any]]:
         logger.info("Fetching escalation policies from OpsGenie")
