@@ -29,13 +29,17 @@ logger = logging.getLogger(__name__)
 logger.info(f"Logs will be stored in: {log_filename}")
 
 @click.group()
+@click.option('--system', '-s', type=click.Choice(['opsgenie', 'pagerduty'], case_sensitive=False),
+                help='Source alerting system to migrate from (opsgenie or pagerduty)')
 @click.option('--opsgenie-api-key', '-o', help='OpsGenie API key')
+@click.option('--pagerduty-api-token', '-p', help='PagerDuty API token')
 @click.option('--squadcast-refresh-token', '-s', help='Squadcast refresh token')
 @click.option('--dry-run/--no-dry-run', default=False, 
               help='Run in dry-run mode (no actual changes)')
 @click.option('--verbose', '-v', is_flag=True, help='Verbose output')
 @click.pass_context
-def cli(ctx, opsgenie_api_key: Optional[str], squadcast_refresh_token: Optional[str], 
+def cli(ctx, opsgenie_api_key: Optional[str], pagerduty_api_token: Optional[str], squadcast_refresh_token: Optional[str], 
+        system: Optional[str],
         dry_run: bool, verbose: bool):
     """
     OpsGenie to Squadcast Migration Tool.
@@ -49,11 +53,20 @@ def cli(ctx, opsgenie_api_key: Optional[str], squadcast_refresh_token: Optional[
     if squadcast_refresh_token:
         settings.squadcast_refresh_token = squadcast_refresh_token
     
+    if pagerduty_api_token:
+        settings.pagerduty_api_token = pagerduty_api_token
+
+    if system:
+        settings.system = system
+    
     settings.dry_run = dry_run
     
     # Store clients in context for sub-commands
     ctx.ensure_object(dict)
-    ctx.obj['opsgenie_client'] = OpsGenieClient()
+    if settings.system == "opsgenie":
+        ctx.obj['source_client'] = OpsGenieClient()
+    elif settings.system == "pagerduty":
+        ctx.obj['source_client'] = None # Replace with PagerDutyClient() if needed
     ctx.obj['squadcast_client'] = SquadcastClient()
     
     if dry_run:
@@ -63,8 +76,8 @@ def cli(ctx, opsgenie_api_key: Optional[str], squadcast_refresh_token: Optional[
 @cli.command('migrate-users')
 @click.pass_context
 def migrate_users(ctx):
-    """Migrate users from OpsGenie to Squadcast."""
-    source_client = ctx.obj['opsgenie_client']
+    """Migrate users to Squadcast."""
+    source_client = ctx.obj['source_client']
     squadcast_client = ctx.obj['squadcast_client']
     
     migrator = UserMigrator(source_client, squadcast_client)
