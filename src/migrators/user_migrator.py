@@ -44,9 +44,9 @@ class UserMigrator:
                 
                 sq_user = self.squadcast_client.create_user(sq_user_data)
                 
-                self.migration_map[user.get("id")] = sq_user.get("_id")
+                self.migration_map[user.get("id")] = sq_user.get("id")
                 
-                logger.info(f"Successfully migrated user: {user.get('username')} ({sq_user.get('_id')})")
+                logger.info(f"Successfully migrated user: {user.get('username')} ({sq_user.get('id')})")
                 success_count += 1
                 
             except Exception as e:

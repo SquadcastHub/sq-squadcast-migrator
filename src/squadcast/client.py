@@ -88,18 +88,32 @@ class SquadcastClient:
         logger.info(f"Creating user in Squadcast: {user_data.get('first_name', 'Unknown')} {user_data.get('last_name', 'Unknown')} - ({user_data.get('email', 'Unknown')})")
         if settings.dry_run:
             logger.info("DRY RUN: Would create user in Squadcast")
-            return {"_id": "mock_id", "first_name": user_data.get("first_name"), "last_name": user_data.get("last_name"), "email": user_data.get("email"), "dry_run": True}
+            return {"id": "mock_user_id", "first_name": user_data.get("first_name"), "last_name": user_data.get("last_name"), "email": user_data.get("email"), "dry_run": True}
         
-        response = self._make_request("POST", "users", json_data=user_data)
+        response = self._make_request("POST", "/v3/users", json_data=user_data)
         return response.get("data", {})
+    
+    def get_all_teams(self) -> List[Dict[str, Any]]:
+        logger.info("Fetching all teams from Squadcast")
+        response = self._make_request("GET", "teams")
+        return response.get("data", [])
     
     def create_team(self, team_data: Dict[str, Any]) -> Dict[str, Any]:
         logger.info(f"Creating team in Squadcast: {team_data.get('name', 'Unknown')}")
         if settings.dry_run:
             logger.info("DRY RUN: Would create team in Squadcast")
-            return {"_id": "mock_id", "name": team_data.get("name"), "description": team_data.get("description"), "members": team_data.get("members", []), "dry_run": True}
+            return {"id": "mock_team_id", "name": team_data.get("name"), "description": team_data.get("description"), "members": team_data.get("members", []), "dry_run": True}
         
-        response = self._make_request("POST", "teams", json_data=team_data)
+        response = self._make_request("POST", "/v3/teams", json_data=team_data)
         return response.get("data", {})
     
+    def create_squad(self, team: Dict[str, Any], squad_data: Dict[str, Any]) -> Dict[str, Any]:
+        squad_data["owner_id"] = team.get("id")
+        logger.info(f"Creating squad '{squad_data.get('name', 'Unknown')}' in {team.get('name', 'Unknown')} {squad_data}")
+        if settings.dry_run:
+            logger.info("DRY RUN: Would create squad in team")
+            return {"id": "mock_squad_id", "name": squad_data.get("name"), "dry_run": True}
+        
+        response = self._make_request("POST", "/v4/squads", json_data=squad_data)
+        return response.get("data", {})
     # Add other methods as needed

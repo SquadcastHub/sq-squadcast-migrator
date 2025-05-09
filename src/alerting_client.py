@@ -28,7 +28,7 @@ class AlertingClient(ABC):
         pass
 
     @abstractmethod
-    def transform_team(self, team: Dict[str, Any], user_migration_map: Dict[str, str] = None) -> Dict[str, Any]:
+    def transform_team(self, team: Dict[str, Any], user_migration_map: Dict[str, str] = None, migration_mode: str = "separate_teams") -> Dict[str, Any]:
         """
         Transform a team object from the alerting system to a squadcast format.
         

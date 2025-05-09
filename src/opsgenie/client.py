@@ -81,7 +81,7 @@ class OpsGenieClient(AlertingClient):
 
         return all_users
     
-    def transform_team(self, og_team: Dict[str, Any], user_migration_map: Dict[str, str] = None) -> Dict[str, Any]:
+    def transform_team(self, og_team: Dict[str, Any], user_migration_map: Dict[str, str] = None, migration_mode: str = "separate_teams") -> Dict[str, Any]:
         """
         Transform a team object from OpsGenie to Squadcast format.
         
@@ -96,11 +96,17 @@ class OpsGenieClient(AlertingClient):
         
         if og_team.get("members") and user_migration_map:
             for og_member in og_team.get("members", []):
-                user_id = og_member.get("user", {}).get("id")
-                if user_id and user_id in user_migration_map:
-                    sq_members.append(user_migration_map[user_id])
-                else:
+                og_user_id = og_member.get("user", {}).get("id")
+                if not og_user_id or og_user_id not in user_migration_map:
                     logger.warning(f"User {og_member.get('user', {}).get('username')} not found in migration map, skipping")
+                    continue
+                if migration_mode == "separate_teams":
+                    sq_members.append(user_migration_map[og_user_id])
+                elif migration_mode == "squads_in_team":
+                    sq_members.append({
+                        "user_id": user_migration_map[og_user_id],
+                        # "role": "member" # add this for OBAC model
+                    })
         return {
             "name": og_team.get("name"),
             "description": og_team.get("description", ""),
