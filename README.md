@@ -81,7 +81,7 @@ python main.py --no-dry-run migrate-all
 ### Project Structure
 
 ```
-opsgenie-squadcast-migrator/
+squadcast-migrator/
 ├── config/                 # Configuration management
 │   ├── __init__.py
 │   └── config.py
@@ -96,9 +96,12 @@ opsgenie-squadcast-migrator/
 │   ├── squadcast/          # Squadcast API client
 │   │   ├── __init__.py
 │   │   └── client.py
-│   └── migrators/          # Migration logic
+│   ├── migrators/          # Migration logic
+│   │   ├── __init__.py
+│   │   └── user_migrator.py
+│   └── logging/          
 │       ├── __init__.py
-│       └── user_migrator.py
+│       └── formatter.py
 ```
 
 ### Adding New Migration Types
