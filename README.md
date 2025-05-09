@@ -59,7 +59,7 @@ python main.py --dry-run --system pagerduty --pagerduty-api-token YOUR_TOKEN --s
 To migrate users to Squadcast:
 
 ```bash
-python main.py migrate-users
+python main.py --no-dry-run migrate-users
 ```
 
 To run in dry-run mode (no actual changes will be made):
@@ -73,7 +73,7 @@ python main.py --dry-run migrate-users
 To migrate all supported entities:
 
 ```bash
-python main.py migrate-all
+python main.py --no-dry-run migrate-all
 ```
 
 ## Development
