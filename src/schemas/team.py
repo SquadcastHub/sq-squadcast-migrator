@@ -12,7 +12,7 @@ class TeamBase(BaseSchema):
     description: Optional[str] = None
 
 
-class TeamCreate(TeamBase):
+class CreateTeamRequest(TeamBase):
     """Model for creating a team."""
 
     members: Optional[List[str]] = Field(default_factory=list)
@@ -22,7 +22,6 @@ class TeamMember(BaseSchema):
 
     user_id: str
     role_ids: List[str] = Field(default_factory=list)
-    abilities: Dict[str, Any] = Field(default_factory=dict)
 
 class Role(BaseModel):
     id: str

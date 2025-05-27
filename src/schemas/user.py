@@ -13,7 +13,7 @@ class UserBase(BaseSchema):
     role: Optional[str] = None
 
 
-class UserCreate(UserBase):
+class CreateUserRequest(UserBase):
     """Model for creating a user."""
     pass
 
@@ -23,10 +23,3 @@ class UserResponse(UserBase):
 
     id: str
 
-
-class UserMigration(BaseSchema):
-    """Model for tracking user migration."""
-
-    source_id: str
-    target_id: str
-    email: EmailStr

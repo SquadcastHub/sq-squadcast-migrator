@@ -16,7 +16,7 @@ class SquadMember(BaseSchema):
     user_id: str
     # role: str # Add this for OBAC Model
 
-class SquadCreate(SquadBase):
+class CreateSquadRequest(SquadBase):
     """Model for creating a squad."""
 
     owner_id: Optional[str] = None

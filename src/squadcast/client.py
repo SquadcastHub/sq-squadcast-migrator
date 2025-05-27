@@ -3,9 +3,9 @@ from typing import Dict, Optional, List
 import logging
 from config.config import settings
 from src.schemas.auth import AuthResponse
-from src.schemas.user import UserCreate, UserResponse
-from src.schemas.team import TeamCreate, TeamResponse
-from src.schemas.squad import SquadCreate, SquadResponse
+from src.schemas.user import CreateUserRequest, UserResponse
+from src.schemas.team import CreateTeamRequest, TeamResponse
+from src.schemas.squad import CreateSquadRequest, SquadResponse
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +88,7 @@ class SquadcastClient:
             return {}
 
     # Define methods for creating users, teams, escalation policies, etc.
-    def create_user(self, user_data: UserCreate) -> UserResponse:
+    def create_user(self, user_data: CreateUserRequest) -> UserResponse:
         logger.info(
             f"Creating user in Squadcast: {user_data.first_name} {user_data.last_name} - ({user_data.email})"
         )
@@ -119,7 +119,7 @@ class SquadcastClient:
             logger.error(f"Failed to fetch teams: {e}")
             raise e
 
-    def create_team(self, team_data: TeamCreate) -> TeamResponse:
+    def create_team(self, team_data: CreateTeamRequest) -> TeamResponse:
         logger.info(f"Creating team in Squadcast: {team_data.name}")
         if settings.dry_run:
             logger.info("DRY RUN: Would create team in Squadcast")
@@ -139,7 +139,7 @@ class SquadcastClient:
             raise e
 
     def create_squad(
-        self, team: TeamResponse, squad_data: SquadCreate
+        self, team: TeamResponse, squad_data: CreateSquadRequest
     ) -> SquadResponse:
         squad_data.owner_id = team.id
         logger.info(
