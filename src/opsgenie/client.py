@@ -1,8 +1,12 @@
 import requests
-from typing import Dict, List, Any, Optional, Set
+from typing import Dict, List, Any, Optional, Union
 import logging
 from config.config import settings
 from src.alerting_client import AlertingClient
+from src.schemas.user import UserCreate
+from src.schemas.team import TeamCreate
+from src.schemas.squad import SquadCreate, SquadMember
+
 
 logger = logging.getLogger(__name__)
 
@@ -48,18 +52,16 @@ class OpsGenieClient(AlertingClient):
             logger.error(f"Request error: {e}")
             raise
 
-    def transform_user(self, og_user: Dict[str, Any]) -> Dict[str, Any]:
+    def transform_user(self, og_user: Dict[str, Any]) -> UserCreate:
         full_name = og_user.get("fullName", "")
         name_parts = full_name.split(" ", 1)
 
-        sq_user = {
-            "first_name": name_parts[0] if len(name_parts) > 0 else "",
-            "last_name": name_parts[1] if len(name_parts) > 1 else "",
-            "email": og_user.get("username"),
-            "role": "user",
-        }
-
-        return sq_user
+        return UserCreate(
+            first_name=name_parts[0] if len(name_parts) > 0 else "",
+            last_name=name_parts[1] if len(name_parts) > 1 else "",
+            email=og_user.get("username"),
+            role="user",
+        )
 
     def get_users(self) -> List[Dict[str, Any]]:
         logger.info("Fetching users from OpsGenie")
@@ -90,17 +92,7 @@ class OpsGenieClient(AlertingClient):
         og_team: Dict[str, Any],
         user_migration_map: Dict[str, str] = None,
         migration_mode: str = "separate_teams",
-    ) -> Dict[str, Any]:
-        """
-        Transform a team object from OpsGenie to Squadcast format.
-
-        Args:
-            team: OpsGenie team object
-            user_migration_map: Optional mapping of OpsGenie user IDs to Squadcast user IDs
-
-        Returns:
-            Transformed team object for Squadcast
-        """
+    ) -> Union[TeamCreate, SquadCreate]:
         sq_members = []
 
         if og_team.get("members") and user_migration_map:
@@ -111,21 +103,29 @@ class OpsGenieClient(AlertingClient):
                         f"User {og_member.get('user', {}).get('username')} not found in migration map, skipping"
                     )
                     continue
+
                 if migration_mode == "separate_teams":
                     sq_members.append(user_migration_map[og_user_id])
                 elif migration_mode == "squads_in_team":
                     sq_members.append(
-                        {
-                            "user_id": user_migration_map[og_user_id],
-                            # "role": "member" # add this for OBAC model
-                        }
+                        SquadMember(user_id=user_migration_map[og_user_id])
                     )
-        return {
-            "name": og_team.get("name"),
-            "description": og_team.get("description", ""),
-            "members": sq_members,
-        }
 
+        name = og_team.get("name", "")
+
+        if migration_mode == "separate_teams":
+            return TeamCreate(
+                name=name,
+                description=og_team.get("description", ""),
+                members=sq_members
+            )
+        elif migration_mode == "squads_in_team":
+            return SquadCreate(
+                name=name,
+                members=sq_members
+            )
+        raise ValueError(f"Unknown migration mode: {migration_mode}")
+    
     def get_teams(self) -> List[Dict[str, Any]]:
         logger.info("Fetching teams from OpsGenie")
         response = self._make_request("GET", "teams")

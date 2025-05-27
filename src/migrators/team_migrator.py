@@ -1,10 +1,11 @@
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any
 import click
 from src.alerting_client import AlertingClient
 from src.squadcast.client import SquadcastClient
 from tqdm import tqdm
 from config.config import settings
+from src.schemas.migration import TeamMigrationStats
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +31,9 @@ class TeamMigrator:
         self.squadcast_client = squadcast_client
         self.user_migration_map = user_migration_map or {}
         self.selected_team = None  # Selected team for squad migration
-        self.migration_map = {}  # Maps source team IDs to Squadcast team IDs
         self.migration_mode = None  # Will be set during migration based on user input
 
-    def migrate(self) -> Dict[str, Any]:
+    def migrate(self) -> TeamMigrationStats:
         """
         Migrate all teams from source alerting system to Squadcast.
 
@@ -47,27 +47,33 @@ class TeamMigrator:
         source_teams = self.source_client.get_teams()
         logger.info(f"Found {len(source_teams)} teams in {settings.system}")
 
-        success_count = 0
-        failure_count = 0
-        skipped_count = 0
+        migration_stats = TeamMigrationStats(
+            total_count=len(source_teams),
+            migration_mode=self.migration_mode,
+            skipped_count=0,
+            success_count=0,
+            failure_count=0,
+            migration_map={},
+            errors=[]
+        )
 
         if self.migration_mode == "squads_in_team":
             sq_teams = self.squadcast_client.get_all_teams()
             logger.info(f"Found {len(sq_teams)} teams in Squadcast")
             team_name = click.prompt(
                 "Select a team to migrate squads into",
-                type=click.Choice([t.get("name") for t in sq_teams]),
-                default=sq_teams[0].get("name"),
+                type=click.Choice([t.name for t in sq_teams]),
+                default=sq_teams[0].name,
                 show_choices=True,
             )
             self.selected_team = next(
-                (t for t in sq_teams if t.get("name") == team_name), None
+                (t for t in sq_teams if t.name == team_name), None
             )
             if not self.selected_team:
                 logger.warning(f"Selected team not found in Squadcast: {team_name}")
             else:
                 logger.info(
-                    f"Selected team for squad migration: {self.selected_team.get('name')}"
+                    f"Selected team for squad migration: {self.selected_team.name}"
                 )
 
         for team in tqdm(source_teams, desc="Migrating teams"):
@@ -87,34 +93,30 @@ class TeamMigrator:
 
                 if self.migration_mode == "separate_teams":
                     sq_team = self.squadcast_client.create_team(sq_team_data)
-                    self.migration_map[team_id] = sq_team.get("id")
+                    migration_stats.migration_map[team_id] = sq_team.id
 
                     logger.info(f"Successfully migrated team: {team.get('name')}")
                 else:
                     sq_squad = self.squadcast_client.create_squad(
                         self.selected_team, squad_data=sq_team_data
                     )
-                    self.migration_map[team_id] = sq_squad.get("id")
+                    migration_stats.migration_map[team_id] = sq_squad.id
                     logger.info(
-                        f"Successfully migrated team {team.get('name')} as a squad in {self.selected_team.get('name')}"
+                        f"Successfully migrated team {team.get('name')} as a squad in {self.selected_team.id}"
                     )
 
-                success_count += 1
+                migration_stats.success_count += 1
 
             except Exception as e:
                 logger.error(
                     f"Failed to migrate team {team.get('name', 'Unknown')}: {str(e)}"
                 )
-                failure_count += 1
+                migration_stats.failure_count += 1
+                migration_stats.errors.append(
+                    f"Failed to migrate team {team.get('name', 'Unknown')}: {str(e)}"
+                )
 
-        return {
-            "total": len(source_teams),
-            "success": success_count,
-            "failure": failure_count,
-            "skipped": skipped_count,
-            "migration_map": self.migration_map,
-            "migration_mode": self.migration_mode,
-        }
+        return migration_stats
 
     def _prompt_migration_mode(self):
         """

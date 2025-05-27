@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List, Any
+from src.schemas.user import UserCreate
+from src.schemas.team import TeamCreate
 
 
 class AlertingClient(ABC):
@@ -9,7 +11,7 @@ class AlertingClient(ABC):
     """
 
     @abstractmethod
-    def transform_user(self, user: Dict[str, Any]) -> Dict[str, Any]:
+    def transform_user(self, user: Dict[str, Any]) -> UserCreate:
         """
         Transform a user object from the alerting system to a Squadcast format.
 
@@ -34,7 +36,7 @@ class AlertingClient(ABC):
         team: Dict[str, Any],
         user_migration_map: Dict[str, str] = None,
         migration_mode: str = "separate_teams",
-    ) -> Dict[str, Any]:
+    ) -> TeamCreate:
         """
         Transform a team object from the alerting system to a squadcast format.
 

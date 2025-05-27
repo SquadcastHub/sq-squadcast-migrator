@@ -109,12 +109,12 @@ def migrate_users(ctx):
 
     migrator = UserMigrator(source_client, squadcast_client)
     result = migrator.migrate()
-    ctx.obj["user_migration_map"] = result.get("migration_map", {})
+    ctx.obj["user_migration_map"] = result.migration_map
 
     logger.info("User migration completed successfully ✅")
     logger.info(
-        f"Total: {result['total']}, Success: {result['success']}, "
-        f"Failed: {result['failure']}, Skipped: {result['skipped']}"
+        f"Total: {result.total_count}, Success: {result.success_count}, "
+        f"Failed: {result.failure_count}, Skipped: {result.skipped_count}"
     )
 
 
@@ -133,12 +133,12 @@ def migrate_teams(ctx):
 
     migrator = TeamMigrator(source_client, squadcast_client, user_migration_map)
     result = migrator.migrate()
-    ctx.obj["team_migration_map"] = result.get("migration_map", {})
+    ctx.obj["team_migration_map"] = result.migration_map
 
     logger.info("Team migration completed successfully ✅")
     logger.info(
-        f"Total: {result['total']}, Success: {result['success']}, "
-        f"Failed: {result['failure']}, Skipped: {result['skipped']}"
+        f"Total: {result.total_count}, Success: {result.success_count}, "
+        f"Failed: {result.failure_count}, Skipped: {result.skipped_count}"
     )
 
 
