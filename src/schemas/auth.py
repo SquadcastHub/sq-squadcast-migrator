@@ -1,11 +1,9 @@
 """Authentication models for Squadcast API."""
 from typing import Optional
-from pydantic import BaseModel
-
-from src.schemas.base import BaseSchema
+from .base import BaseSchema
 
 
-class AuthResponse(BaseSchema):
+class OauthResponse(BaseSchema):
     """Authentication response model."""
 
     access_token: str

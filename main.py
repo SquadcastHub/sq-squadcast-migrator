@@ -38,7 +38,7 @@ root_logger.addHandler(file_handler)
 logger = logging.getLogger(__name__)
 logger.propagate = True
 
-logger.info(f"Logs will be stored in: {log_filename}")
+logger.info(f"💾 Logs will be stored in: {log_filename}")
 
 
 @click.group()
@@ -107,15 +107,22 @@ def migrate_users(ctx):
     source_client = ctx.obj["source_client"]
     squadcast_client = ctx.obj["squadcast_client"]
 
+    logger.info("🚀 Starting user migration...")
+
     migrator = UserMigrator(source_client, squadcast_client)
     result = migrator.migrate()
     ctx.obj["user_migration_map"] = result.migration_map
 
-    logger.info("User migration completed successfully ✅")
+    logger.info("✅ User migration completed.")
     logger.info(
-        f"Total: {result.total_count}, Success: {result.success_count}, "
-        f"Failed: {result.failure_count}, Skipped: {result.skipped_count}"
+        f"📊 Summary → Total: {result.total_count}, "
+        f"✅ Success: {result.success_count}, "
+        f"⏭️ Skipped: {result.skipped_count}, "
+        f"❌ Failed: {result.failure_count}"
     )
+
+    if result.failure_count > 0:
+        logger.warning("⚠️ Some users failed to migrate. Check logs above for details.")
 
 
 @cli.command("migrate-teams")
@@ -128,8 +135,10 @@ def migrate_teams(ctx):
     user_migration_map = ctx.obj.get("user_migration_map", {})
     if not user_migration_map:
         logger.warning(
-            "No user migration map found. Teams will be created without members."
+            "⚠️  No user migration map provided — teams will be migrated without members."
         )
+    
+    logger.info("🚀 Starting team migration...")
 
     migrator = TeamMigrator(source_client, squadcast_client, user_migration_map)
     result = migrator.migrate()
@@ -137,9 +146,14 @@ def migrate_teams(ctx):
 
     logger.info("Team migration completed successfully ✅")
     logger.info(
-        f"Total: {result.total_count}, Success: {result.success_count}, "
-        f"Failed: {result.failure_count}, Skipped: {result.skipped_count}"
+        f"📊 Summary → Total: {result.total_count}, "
+        f"✅ Success: {result.success_count}, "
+        f"⏭️ Skipped: {result.skipped_count}, "
+        f"❌ Failed: {result.failure_count}"
     )
+
+    if result.failure_count > 0:
+        logger.warning("⚠️ Some teams failed to migrate. Check logs above for details.")
 
 
 @cli.command("migrate-all")

@@ -1,11 +1,10 @@
 """Squad models for Squadcast API."""
 from typing import Optional, List
-from pydantic import BaseModel, Field
+from pydantic import Field
+from .base import BaseSchema
 
-from src.schemas.base import BaseSchema
 
-
-class SquadBase(BaseSchema):
+class BaseSquad(BaseSchema):
     """Base model for a squad."""
 
     name: str
@@ -16,16 +15,19 @@ class SquadMember(BaseSchema):
     user_id: str
     # role: str # Add this for OBAC Model
 
-class CreateSquadRequest(SquadBase):
+class CreateSquadRequest(BaseSquad):
     """Model for creating a squad."""
 
     owner_id: Optional[str] = None
     members: List[SquadMember] = Field(default_factory=list)
 
-
-class SquadResponse(SquadBase):
+class Squad(BaseSquad):
     """Model for squad response from API."""
 
     id: str
     owner_id: Optional[str] = None
     members: List[SquadMember] = Field(default_factory=list)
+
+class CreateSquadResponse(Squad):
+    """Model for creating a squad response."""
+    pass

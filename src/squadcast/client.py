@@ -2,10 +2,11 @@ import requests
 from typing import Dict, Optional, List
 import logging
 from config.config import settings
-from src.schemas.auth import AuthResponse
-from src.schemas.user import CreateUserRequest, UserResponse
-from src.schemas.team import CreateTeamRequest, TeamResponse
-from src.schemas.squad import CreateSquadRequest, SquadResponse
+from src.schemas.auth import OauthResponse
+from src.schemas.user import CreateUserRequest, CreateUserResponse
+from src.schemas.team import CreateTeamRequest, CreateTeamResponse, Team
+from src.schemas.squad import CreateSquadRequest, CreateSquadResponse
+from src.schemas.api import ErrorResponse
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +46,7 @@ class SquadcastClient:
             response.raise_for_status()
 
             auth_data = response.json().get("data", {})
-            auth_response = AuthResponse(**auth_data)
+            auth_response = OauthResponse(**auth_data)
 
             if not auth_response.access_token:
                 raise ValueError("Access token not found in the response")
@@ -70,7 +71,7 @@ class SquadcastClient:
 
         url = f"{self.api_url}{endpoint}"
         headers = {
-            "Authorization": f"Bearer {self.access_token}",
+            "Authorization": f"Bearer 1{self.access_token}",
             "Content-Type": "application/json",
         }
 
@@ -82,19 +83,21 @@ class SquadcastClient:
             return response.json()
         except requests.exceptions.RequestException as e:
             logger.error(f"Request error: {e}")
+            error_response = ErrorResponse(**e.response.json())
+            logger.error(f"Squadcast API error (status: {error_response.meta.status}): {error_response.meta.error_message}")
             raise e
         except ValueError as e:
             logger.error(f"Failed to decode JSON response: {e}")
             return {}
 
     # Define methods for creating users, teams, escalation policies, etc.
-    def create_user(self, user_data: CreateUserRequest) -> UserResponse:
+    def create_user(self, user_data: CreateUserRequest) -> CreateUserResponse:
         logger.info(
             f"Creating user in Squadcast: {user_data.first_name} {user_data.last_name} - ({user_data.email})"
         )
         if settings.dry_run:
             logger.info("DRY RUN: Would create user in Squadcast")
-            return UserResponse(
+            return CreateUserResponse(
                 id="mock_id",
                 email=user_data.email,
                 first_name=user_data.first_name,
@@ -104,50 +107,49 @@ class SquadcastClient:
 
         try:
             response = self._make_request("POST", "/v3/users", json_data=user_data)
-            return UserResponse(**response.get("data", {}))
+            return CreateUserResponse(**response.get("data", {}))
         except Exception as e:
             logger.error(f"Failed to create user: {e}")
             raise
 
-    def get_all_teams(self) -> List[TeamResponse]:
+    def get_all_teams(self) -> List[Team]:
         logger.info("Fetching all teams from Squadcast")
         try:
             response = self._make_request("GET", "/v3/teams")
             teams_data = response.get("data", [])
-            return [TeamResponse(**team) for team in teams_data]
+            return [Team(**team) for team in teams_data]
         except Exception as e:
             logger.error(f"Failed to fetch teams: {e}")
             raise e
 
-    def create_team(self, team_data: CreateTeamRequest) -> TeamResponse:
+    def create_team(self, team_data: CreateTeamRequest) -> CreateTeamResponse:
         logger.info(f"Creating team in Squadcast: {team_data.name}")
         if settings.dry_run:
             logger.info("DRY RUN: Would create team in Squadcast")
-            return TeamResponse(
+            return CreateTeamResponse(
                 id="mock_team_id",
                 name=team_data.name,
                 description=team_data.description,
-                members=team_data.members,
                 dry_run=True,
             )
 
         try:
             response = self._make_request("POST", "/v3/teams", json_data=team_data)
-            return TeamResponse(**response.get("data", {}))
+            return CreateTeamResponse(**response.get("data", {}))
         except Exception as e:
             logger.error(f"Failed to create team: {e}")
             raise e
 
     def create_squad(
-        self, team: TeamResponse, squad_data: CreateSquadRequest
-    ) -> SquadResponse:
+        self, team: Team, squad_data: CreateSquadRequest
+    ) -> CreateSquadResponse:
         squad_data.owner_id = team.id
         logger.info(
             f"Creating squad '{squad_data.name}' in {team.name} {squad_data}"
         )
         if settings.dry_run:
             logger.info("DRY RUN: Would create squad in team")
-            return SquadResponse(
+            return CreateSquadResponse(
                 id="mock_squad_id",
                 name=squad_data.name,
                 owner_id=team.id,
@@ -157,7 +159,7 @@ class SquadcastClient:
 
         try:
             response = self._make_request("POST", "/v4/squads", json_data=squad_data)
-            return SquadResponse(**response.get("data", {}))
+            return CreateSquadResponse(**response.get("data", {}))
         except Exception as e:
             logger.error(f"Failed to create squad: {e}")
             raise e

@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Any
 from src.schemas.user import CreateUserRequest
 from src.schemas.team import CreateTeamRequest
+from src.schemas.squad import CreateSquadRequest
+from typing import Union
 
 
 class AlertingClient(ABC):
@@ -36,12 +38,12 @@ class AlertingClient(ABC):
         team: Dict[str, Any],
         user_migration_map: Dict[str, str] = None,
         migration_mode: str = "separate_teams",
-    ) -> CreateTeamRequest:
+    ) -> Union[CreateTeamRequest, CreateSquadRequest]:
         """
         Transform a team object from the alerting system to a squadcast format.
 
         Returns:
-            Transformed team object.
+            Transformed team or squad object.
         """
         pass
 
