@@ -55,8 +55,10 @@ LOG_LEVEL=INFO
 Alternatively, you can provide configuration via command-line arguments:
 
 ```bash
-python main.py --dry-run --system opsgenie --opsgenie-api-key YOUR_KEY --squadcast-refresh-token YOUR_TOKEN migrate-users
-python main.py --dry-run --system pagerduty --pagerduty-api-token YOUR_TOKEN --squadcast-refresh-token YOUR_TOKEN migrate-users
+```bash
+uv run main.py --dry-run --system opsgenie --opsgenie-api-key YOUR_KEY --squadcast-refresh-token YOUR_TOKEN migrate-users
+uv run main.py --dry-run --system pagerduty --pagerduty-api-token YOUR_TOKEN --squadcast-refresh-token YOUR_TOKEN migrate-users
+```
 ```
 
 ## Usage

@@ -1,7 +1,12 @@
 import requests
-from typing import Dict, Any, Optional, List
+from typing import Dict, Optional, List
 import logging
 from config.config import settings
+from src.schemas.auth import OauthResponse
+from src.schemas.user import CreateUserRequest, CreateUserResponse
+from src.schemas.team import CreateTeamRequest, CreateTeamResponse, Team
+from src.schemas.squad import CreateSquadRequest, CreateSquadResponse
+from src.schemas.api import ErrorResponse
 
 logger = logging.getLogger(__name__)
 
@@ -41,13 +46,13 @@ class SquadcastClient:
             response.raise_for_status()
 
             auth_data = response.json().get("data", {})
-            access_token = auth_data.get("access_token")
+            auth_response = OauthResponse(**auth_data)
 
-            if not access_token:
+            if not auth_response.access_token:
                 raise ValueError("Access token not found in the response")
 
             logger.debug("Successfully obtained access token")
-            return access_token
+            return auth_response.access_token
 
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to get access token: {str(e)}")
@@ -64,77 +69,99 @@ class SquadcastClient:
         if not self.access_token:
             self.access_token = self._get_access_token()
 
-        url = f"{self.api_url}/{endpoint}"
+        url = f"{self.api_url}{endpoint}"
         headers = {
-            "Authorization": f"Bearer {self.access_token}",
+            "Authorization": f"Bearer 1{self.access_token}",
             "Content-Type": "application/json",
         }
 
-        response = requests.request(
-            method=method, url=url, headers=headers, params=params, json=json_data
-        )
-
         try:
+            response = requests.request(
+                method=method, url=url, headers=headers, params=params, json=json_data
+            )
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
             logger.error(f"Request error: {e}")
-            raise
+            error_response = ErrorResponse(**e.response.json())
+            logger.error(f"Squadcast API error (status: {error_response.meta.status}): {error_response.meta.error_message}")
+            raise e
+        except ValueError as e:
+            logger.error(f"Failed to decode JSON response: {e}")
+            return {}
 
     # Define methods for creating users, teams, escalation policies, etc.
-    def create_user(self, user_data: Dict[str, Any]) -> Dict[str, Any]:
+    def create_user(self, user_data: CreateUserRequest) -> CreateUserResponse:
         logger.info(
-            f"Creating user in Squadcast: {user_data.get('first_name', 'Unknown')} {user_data.get('last_name', 'Unknown')} - ({user_data.get('email', 'Unknown')})"
+            f"Creating user in Squadcast: {user_data.first_name} {user_data.last_name} - ({user_data.email})"
         )
         if settings.dry_run:
             logger.info("DRY RUN: Would create user in Squadcast")
-            return {
-                "id": "mock_user_id",
-                "first_name": user_data.get("first_name"),
-                "last_name": user_data.get("last_name"),
-                "email": user_data.get("email"),
-                "dry_run": True,
-            }
+            return CreateUserResponse(
+                id="mock_id",
+                email=user_data.email,
+                first_name=user_data.first_name,
+                last_name=user_data.last_name,
+                role=user_data.role
+            )
 
-        response = self._make_request("POST", "/v3/users", json_data=user_data)
-        return response.get("data", {})
+        try:
+            response = self._make_request("POST", "/v3/users", json_data=user_data)
+            return CreateUserResponse(**response.get("data", {}))
+        except Exception as e:
+            logger.error(f"Failed to create user: {e}")
+            raise
 
-    def get_all_teams(self) -> List[Dict[str, Any]]:
+    def get_all_teams(self) -> List[Team]:
         logger.info("Fetching all teams from Squadcast")
-        response = self._make_request("GET", "teams")
-        return response.get("data", [])
+        try:
+            response = self._make_request("GET", "/v3/teams")
+            teams_data = response.get("data", [])
+            return [Team(**team) for team in teams_data]
+        except Exception as e:
+            logger.error(f"Failed to fetch teams: {e}")
+            raise e
 
-    def create_team(self, team_data: Dict[str, Any]) -> Dict[str, Any]:
-        logger.info(f"Creating team in Squadcast: {team_data.get('name', 'Unknown')}")
+    def create_team(self, team_data: CreateTeamRequest) -> CreateTeamResponse:
+        logger.info(f"Creating team in Squadcast: {team_data.name}")
         if settings.dry_run:
             logger.info("DRY RUN: Would create team in Squadcast")
-            return {
-                "id": "mock_team_id",
-                "name": team_data.get("name"),
-                "description": team_data.get("description"),
-                "members": team_data.get("members", []),
-                "dry_run": True,
-            }
+            return CreateTeamResponse(
+                id="mock_team_id",
+                name=team_data.name,
+                description=team_data.description,
+                dry_run=True,
+            )
 
-        response = self._make_request("POST", "/v3/teams", json_data=team_data)
-        return response.get("data", {})
+        try:
+            response = self._make_request("POST", "/v3/teams", json_data=team_data)
+            return CreateTeamResponse(**response.get("data", {}))
+        except Exception as e:
+            logger.error(f"Failed to create team: {e}")
+            raise e
 
     def create_squad(
-        self, team: Dict[str, Any], squad_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        squad_data["owner_id"] = team.get("id")
+        self, team: Team, squad_data: CreateSquadRequest
+    ) -> CreateSquadResponse:
+        squad_data.owner_id = team.id
         logger.info(
-            f"Creating squad '{squad_data.get('name', 'Unknown')}' in {team.get('name', 'Unknown')} {squad_data}"
+            f"Creating squad '{squad_data.name}' in {team.name} {squad_data}"
         )
         if settings.dry_run:
             logger.info("DRY RUN: Would create squad in team")
-            return {
-                "id": "mock_squad_id",
-                "name": squad_data.get("name"),
-                "dry_run": True,
-            }
+            return CreateSquadResponse(
+                id="mock_squad_id",
+                name=squad_data.name,
+                owner_id=team.id,
+                members=squad_data.members,
+                dry_run=True,
+            )
 
-        response = self._make_request("POST", "/v4/squads", json_data=squad_data)
-        return response.get("data", {})
+        try:
+            response = self._make_request("POST", "/v4/squads", json_data=squad_data)
+            return CreateSquadResponse(**response.get("data", {}))
+        except Exception as e:
+            logger.error(f"Failed to create squad: {e}")
+            raise e
 
     # Add other methods as needed
