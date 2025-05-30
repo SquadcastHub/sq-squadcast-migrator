@@ -35,6 +35,6 @@ class Team(BaseTeam):
     members: Optional[List[TeamMember]] = Field(default_factory=list)
     roles: List[Role] = Field(default_factory=list)
 
-class CreateTeamResponse(Team):
+class CreateTeamResponse(BaseSchema):
     """Model for creating a team response."""
-    pass
+    team: Team
