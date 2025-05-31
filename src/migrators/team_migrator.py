@@ -76,11 +76,11 @@ class TeamMigrator:
                     f"Selected team for squad migration: {self.selected_team.name}"
                 )
 
-        for team in tqdm(source_teams, desc="Migrating teams"):
+        for source_team in tqdm(source_teams, desc="Migrating teams"):
             try:
-                team_id = team.get("id")
+                team_id = source_team.get("id")
                 if not team_id:
-                    logger.warning(f"Team without ID found, skipping: {team}")
+                    logger.warning(f"Team without ID found, skipping: {source_team}")
                     skipped_count += 1
                     continue
 
@@ -92,28 +92,30 @@ class TeamMigrator:
                 )
 
                 if self.migration_mode == "separate_teams":
-                    sq_team = self.squadcast_client.create_team(sq_team_data)
+                    response = self.squadcast_client.create_team(sq_team_data)
+                    sq_team = response.team
                     migration_stats.migration_map[team_id] = sq_team.id
 
-                    logger.info(f"Successfully migrated team: {team.get('name')}")
+                    logger.info(f"Successfully migrated team: {sq_team.name}")
                 else:
-                    sq_squad = self.squadcast_client.create_squad(
+                    response = self.squadcast_client.create_squad(
                         self.selected_team, squad_data=sq_team_data
                     )
+                    sq_squad = response.squad
                     migration_stats.migration_map[team_id] = sq_squad.id
                     logger.info(
-                        f"Successfully migrated team {team.get('name')} as a squad in {self.selected_team.id}"
+                        f"Successfully migrated team {source_team.get('name')} as a squad in {self.selected_team.id}"
                     )
 
                 migration_stats.success_count += 1
 
             except Exception as e:
                 logger.error(
-                    f"Failed to migrate team {team.get('name', 'Unknown')}: {str(e)}"
+                    f"Failed to migrate team {source_team.get('name', 'Unknown')}: {str(e)}"
                 )
                 migration_stats.failure_count += 1
                 migration_stats.errors.append(
-                    f"Failed to migrate team {team.get('name', 'Unknown')}: {str(e)}"
+                    f"Failed to migrate team {source_team.get('name', 'Unknown')}: {str(e)}"
                 )
 
         return migration_stats

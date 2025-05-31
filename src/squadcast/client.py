@@ -3,9 +3,9 @@ from typing import Dict, Optional, List
 import logging
 from config.config import settings
 from src.schemas.auth import OauthResponse
-from src.schemas.user import CreateUserRequest, CreateUserResponse
+from src.schemas.user import CreateUserRequest, CreateUserResponse, User
 from src.schemas.team import CreateTeamRequest, CreateTeamResponse, Team
-from src.schemas.squad import CreateSquadRequest, CreateSquadResponse
+from src.schemas.squad import CreateSquadRequest, CreateSquadResponse, Squad
 from src.schemas.api import ErrorResponse
 
 logger = logging.getLogger(__name__)
@@ -71,7 +71,7 @@ class SquadcastClient:
 
         url = f"{self.api_url}{endpoint}"
         headers = {
-            "Authorization": f"Bearer 1{self.access_token}",
+            "Authorization": f"Bearer {self.access_token}",
             "Content-Type": "application/json",
         }
 
@@ -98,16 +98,19 @@ class SquadcastClient:
         if settings.dry_run:
             logger.info("DRY RUN: Would create user in Squadcast")
             return CreateUserResponse(
-                id="mock_id",
-                email=user_data.email,
-                first_name=user_data.first_name,
-                last_name=user_data.last_name,
-                role=user_data.role
+                user=User(
+                    id="mock_id",
+                    email=user_data.email,
+                    first_name=user_data.first_name,
+                    last_name=user_data.last_name,
+                    role=user_data.role
+                )
             )
 
         try:
             response = self._make_request("POST", "/v3/users", json_data=user_data)
-            return CreateUserResponse(**response.get("data", {}))
+            user = User(**response.get("data", {}))
+            return CreateUserResponse(user=user)
         except Exception as e:
             logger.error(f"Failed to create user: {e}")
             raise
@@ -127,15 +130,18 @@ class SquadcastClient:
         if settings.dry_run:
             logger.info("DRY RUN: Would create team in Squadcast")
             return CreateTeamResponse(
-                id="mock_team_id",
-                name=team_data.name,
-                description=team_data.description,
-                dry_run=True,
+                team=Team(
+                    id="mock_team_id",
+                    name=team_data.name,
+                    description=team_data.description,
+                    members=[],
+                )
             )
 
         try:
             response = self._make_request("POST", "/v3/teams", json_data=team_data)
-            return CreateTeamResponse(**response.get("data", {}))
+            team = Team(**response.get("data", {}))
+            return CreateTeamResponse(team=team)
         except Exception as e:
             logger.error(f"Failed to create team: {e}")
             raise e
@@ -150,16 +156,18 @@ class SquadcastClient:
         if settings.dry_run:
             logger.info("DRY RUN: Would create squad in team")
             return CreateSquadResponse(
-                id="mock_squad_id",
-                name=squad_data.name,
-                owner_id=team.id,
-                members=squad_data.members,
-                dry_run=True,
+                squad=Squad(
+                    id="mock_squad_id",
+                    name=squad_data.name,
+                    owner_id=team.id,
+                    members=squad_data.members,
+                )
             )
 
         try:
             response = self._make_request("POST", "/v4/squads", json_data=squad_data)
-            return CreateSquadResponse(**response.get("data", {}))
+            squad = Squad(**response.get("data", {}))
+            return CreateSquadResponse(squad=squad)
         except Exception as e:
             logger.error(f"Failed to create squad: {e}")
             raise e

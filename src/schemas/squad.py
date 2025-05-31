@@ -28,6 +28,6 @@ class Squad(BaseSquad):
     owner_id: Optional[str] = None
     members: List[SquadMember] = Field(default_factory=list)
 
-class CreateSquadResponse(Squad):
+class CreateSquadResponse(BaseSchema):
     """Model for creating a squad response."""
-    pass
+    squad: Squad

@@ -45,21 +45,22 @@ class UserMigrator:
         )
         logger.info(f"Found {len(source_users)} users in {settings.system}")
 
-        for user in tqdm(source_users, desc="Migrating users"):
+        for source_user in tqdm(source_users, desc="Migrating users"):
             try:
-                sq_user_data = self.source_client.transform_user(user)
-                sq_user = self.squadcast_client.create_user(user_data=sq_user_data)
+                sq_user_data = self.source_client.transform_user(source_user)
+                response = self.squadcast_client.create_user(user_data=sq_user_data)
+                sq_user = response.user
 
                 logger.info(
-                    f"Successfully migrated user: {user.get('username')} ({sq_user.id})"
+                    f"Successfully migrated user: {source_user.get('username')} ({sq_user.id})"
                 )
                 migration_stats.success_count += 1
-                migration_stats.migration_map[user.get("id")] = sq_user.id
+                migration_stats.migration_map[source_user.get("id")] = sq_user.id
 
             except Exception as e:
-                logger.error(f"Failed to migrate user {user.get('username')}: {str(e)}")
+                logger.error(f"Failed to migrate user {source_user.get('username')}: {str(e)}")
                 migration_stats.errors.append(
-                    f"Failed to migrate user {user.get('username')}: {str(e)}"
+                    f"Failed to migrate user {source_user.get('username')}: {str(e)}"
                 )
                 migration_stats.failure_count += 1
 
