@@ -20,4 +20,4 @@ services:
       - SQUADCAST_AUTH_URL=https://auth.squadcast.com/oauth-access-token
       - DRY_RUN=True
       - LOG_LEVEL=INFO
-    command: ["python", "main.py", "--dry-run", "migrate-users"]
+    command: ["python", "main.py", "--dry-run", "migrate-all"]
