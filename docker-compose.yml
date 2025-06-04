@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  squadcast-migrator:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./.env:/app/.env
+      - ./logs:/app/logs
+    environment:
+      # These values will be overridden by the .env file if it exists
+      - SYSTEM=opsgenie
+      - OPSGENIE_API_KEY=
+      - OPSGENIE_API_URL=https://api.opsgenie.com/v2
+      - PAGERDUTY_API_TOKEN=
+      - PAGERDUTY_API_URL=https://api.pagerduty.com
+      - SQUADCAST_REFRESH_TOKEN=
+      - SQUADCAST_API_URL=https://api.squadcast.com
+      - SQUADCAST_AUTH_URL=https://auth.squadcast.com/oauth-access-token
+      - DRY_RUN=True
+      - LOG_LEVEL=INFO
+    command: ["python", "main.py", "--dry-run", "migrate-users"]
