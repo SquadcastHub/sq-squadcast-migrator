@@ -12,6 +12,7 @@ from src.squadcast.client import SquadcastClient
 from src.migrators.user_migrator import UserMigrator
 from src.migrators.team_migrator import TeamMigrator
 from src.logging import formatter
+from src.db.db_manager import DBManager
 
 os.makedirs("logs", exist_ok=True)
 
@@ -58,6 +59,11 @@ logger.info(f"💾 Logs will be stored in: {log_filename}")
     help="Run in dry-run mode (no actual changes)",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output")
+@click.option(
+    "--db-path",
+    default="migration_data.db",
+    help="Path to the SQLite database file to track failed migrations",
+)
 @click.pass_context
 def cli(
     ctx,
@@ -67,6 +73,7 @@ def cli(
     system: Optional[str],
     dry_run: bool,
     verbose: bool,
+    db_path: str = "migration_data.db",
 ):
     """
     Squadcast Migration Tool.
@@ -96,6 +103,8 @@ def cli(
         ctx.obj["source_client"] = None  # Replace with PagerDutyClient() if needed
     ctx.obj["squadcast_client"] = SquadcastClient()
 
+    ctx.obj["db_manager"] = DBManager(db_path=db_path)
+
     if dry_run:
         logger.info("Running in DRY RUN mode. No changes will be made.")
 
@@ -106,12 +115,13 @@ def migrate_users(ctx):
     """Migrate users to Squadcast."""
     source_client = ctx.obj["source_client"]
     squadcast_client = ctx.obj["squadcast_client"]
+    db_manager: DBManager = ctx.obj["db_manager"]
 
     logger.info("🚀 Starting user migration...")
 
-    migrator = UserMigrator(source_client, squadcast_client)
+    migrator = UserMigrator(source_client, squadcast_client, db_manager=db_manager)
     result = migrator.migrate()
-    ctx.obj["user_migration_map"] = result.migration_map
+    ctx.obj["total_user_count"] = result.total_count
 
     logger.info("✅ User migration completed.")
     logger.info(
@@ -122,7 +132,8 @@ def migrate_users(ctx):
     )
 
     if result.failure_count > 0:
-        logger.warning("⚠️ Some users failed to migrate. Check logs above for details.")
+        logger.warning("⚠️ Some users failed to migrate and were saved to the database.")
+        logger.info("🔄 You can retry them later using: `uv run main.py retry-failed-users`")
 
 
 @cli.command("migrate-teams")
@@ -131,20 +142,23 @@ def migrate_teams(ctx):
     """Migrate teams to Squadcast."""
     source_client = ctx.obj["source_client"]
     squadcast_client = ctx.obj["squadcast_client"]
-
-    user_migration_map = ctx.obj.get("user_migration_map", {})
-    if not user_migration_map:
-        logger.warning(
-            "⚠️  No user migration map provided — teams will be migrated without members."
-        )
+    db_manager: DBManager = ctx.obj["db_manager"]
     
     logger.info("🚀 Starting team migration...")
 
-    migrator = TeamMigrator(source_client, squadcast_client, user_migration_map)
-    result = migrator.migrate()
-    ctx.obj["team_migration_map"] = result.migration_map
+    user_migrations = db_manager.get_all_migration_maps("user")
+    if not user_migrations:
+        logger.warning(
+            "⚠️ No user migration map provided — teams will be migrated without members. Please run `migrate-users` first if needed."
+        )
+    else:
+        logger.info(f"👤 Found {len(user_migrations)} user migrations. Proceeding with team migration...")
+    user_migration_map = {user["source_id"]: user["squadcast_id"] for user in user_migrations}
 
-    logger.info("Team migration completed successfully ✅")
+    migrator = TeamMigrator(source_client, squadcast_client, db_manager=db_manager, user_migration_map=user_migration_map)
+    result = migrator.migrate()
+
+    logger.info("✅ Team migration completed.")
     logger.info(
         f"📊 Summary → Total: {result.total_count}, "
         f"✅ Success: {result.success_count}, "
@@ -154,7 +168,7 @@ def migrate_teams(ctx):
 
     if result.failure_count > 0:
         logger.warning("⚠️ Some teams failed to migrate. Check logs above for details.")
-
+        logger.info("🔄 You can retry them later using: `uv run main.py retry-failed-teams`")
 
 @cli.command("migrate-all")
 @click.pass_context
@@ -167,8 +181,92 @@ def migrate_all(ctx):
 
     # Add other migration commands here as they are implemented
 
-    logger.info("Full migration completed successfully ✅")
+    logger.info("✅ Full migration completed successfully.")
 
+@cli.command("retry-failed-users")
+@click.pass_context
+def retry_failed_users(ctx):
+    """Retry previously failed user migrations."""
+    source_client = ctx.obj["source_client"]
+    squadcast_client = ctx.obj["squadcast_client"]
+    db_manager: DBManager = ctx.obj["db_manager"]
+
+    logger.info("🔄 Starting retry of failed user migrations...")
+
+    migrator = UserMigrator(source_client, squadcast_client, db_manager=db_manager)
+    result = migrator.retry_failed_migrations()
+
+    logger.info("✅ Retry of user migrations completed.")
+    logger.info(
+        f"📊 Summary → Total: {result.total_count}, "
+        f"✅ Success: {result.success_count}, "
+        f"⏭️ Skipped: {result.skipped_count}, "
+        f"❌ Failed: {result.failure_count}"
+    )
+
+    if result.failure_count > 0:
+        logger.warning("⚠️ Some users still failed to migrate. Check logs above for details.")
+    
+@cli.command("retry-failed-teams")
+@click.pass_context
+def retry_failed_teams(ctx):
+    """Retry previously failed team migrations."""
+    source_client = ctx.obj["source_client"]
+    squadcast_client = ctx.obj["squadcast_client"]
+    db_manager: DBManager = ctx.obj["db_manager"]
+
+    logger.info("🔄 Starting retry of failed team migrations...")
+
+    migrator = TeamMigrator(source_client, squadcast_client, db_manager=db_manager)
+    result = migrator.retry_failed_migrations()
+
+    logger.info("✅ Retry of team migrations completed.")
+    logger.info(
+        f"📊 Summary → Total: {result.total_count}, "
+        f"✅ Success: {result.success_count}, "
+        f"⏭️ Skipped: {result.skipped_count}, "
+        f"❌ Failed: {result.failure_count}"
+    )
+
+    if result.failure_count > 0:
+        logger.warning("⚠️ Some teams still failed to migrate. Check logs above for details.")
+
+
+@cli.command("list-failed-migrations")
+@click.option(
+    "--entity-type",
+    type=click.Choice(["user", "team"]),
+    help="Type of failed migrations to list (user or team)",
+)
+@click.option(
+    "--status",
+    default="failed",
+    type=click.Choice(["failed", "retried", "resolved"]),
+    help="Status of migrations to list",
+)
+@click.pass_context
+def list_failed_migrations(ctx, entity_type, status):
+    """List all failed migrations stored in the database."""
+    db_manager: DBManager = ctx.obj["db_manager"]
+
+    failed_migrations = db_manager.get_failed_migrations(entity_type=entity_type, status=status)
+    if not failed_migrations:
+        logger.info(f"No {status} migrations found" + (f" for {entity_type}" if entity_type else ""))
+        return
+    
+    logger.info(f"Found {len(failed_migrations)} {status} migrations" + (f" for {entity_type}" if entity_type else ""))
+    
+    for migration in failed_migrations:
+        entity_data = migration["entity_data"]
+        logger.info(
+            f"ID: {migration['id']}, "
+            f"Source ID: {migration['source_id']}, "
+            f"Entity Type: {migration['entity_type']}, "
+            f"Name: {entity_data.get('fullName', 'Unknown') if migration['entity_type'] == 'user' else entity_data.get('name', 'Unknown')}, "
+            f"Retry Count: {migration['retry_count']}, "
+            f"Error: {migration['error_message']}, "
+            f"Additional Info: {migration.get('additional_info', 'N/A')}, "
+        )
 
 if __name__ == "__main__":
     cli(obj={})

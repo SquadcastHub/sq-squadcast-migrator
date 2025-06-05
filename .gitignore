@@ -43,3 +43,5 @@ htmlcov/
 # Environment variables file - never commit actual credentials!
 # .env should be added to version control with dummy values, but not real credentials
 # .env
+
+*.db

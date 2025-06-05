@@ -8,6 +8,8 @@ A tool to migrate data from alerting systems like OpsGenie, PagerDuty to Squadca
 - Generic `AlertingClient` interface for easy integration with new alerting systems
 - Dry-run mode to preview migration without making any changes
 - Command-line interface with clear options
+- Persistent tracking of failed migrations in a SQLite database
+- Ability to retry failed migrations without duplicating successful ones
 
 ## Installation
 
@@ -74,7 +76,7 @@ python main.py --no-dry-run migrate-users
 To run in dry-run mode (no actual changes will be made):
 
 ```bash
-python main.py --dry-run migrate-users
+uv run main.py --dry-run migrate-users
 ```
 
 ### Migrating Everything
@@ -82,7 +84,46 @@ python main.py --dry-run migrate-users
 To migrate all supported entities:
 
 ```bash
-python main.py --no-dry-run migrate-all
+uv run main.py --no-dry-run migrate-all
+```
+
+### Managing Failed Migrations
+
+Failed migrations are automatically tracked in a SQLite database. You can use the following commands to manage them:
+
+#### List Failed Migrations
+
+To list all failed migrations:
+
+```bash
+uv run main.py list-failed-migrations
+```
+
+To list only failed user migrations:
+
+```bash
+uv run main.py list-failed-migrations --entity-type user
+uv run main.py list-failed-migrations --entity-type team
+```
+
+#### Retry Failed Migrations
+
+To retry failed user migrations:
+
+```bash
+uv run main.py retry-failed-users
+```
+
+To retry failed team migrations:
+
+```bash
+uv run main.py retry-failed-teams
+```
+
+You can specify a custom database path:
+
+```bash
+uv run main.py retry-failed-users --db-path /path/to/custom/migration_data.db
 ```
 
 ## Development
@@ -99,7 +140,7 @@ squadcast-migrator/
 │   ├── opsgenie/           # OpsGenie API client
 │   │   ├── __init__.py
 │   │   └── client.py
-│   ├── pagerduty/           # Pagerduty API client
+│   ├── pagerduty/          # Pagerduty API client
 │   │   ├── __init__.py
 │   │   └── client.py
 │   ├── squadcast/          # Squadcast API client
@@ -108,9 +149,13 @@ squadcast-migrator/
 │   ├── migrators/          # Migration logic
 │   │   ├── __init__.py
 │   │   └── user_migrator.py
-│   └── logging/          
+│   ├── logging/          
+│   │   ├── __init__.py
+│   │   └── formatter.py
+│   └── db/                 # Database management for tracking failed migrations
 │       ├── __init__.py
-│       └── formatter.py
+│       └── db_manager.py
+├── migration_data.db       # SQLite database for storing failed migrations
 ```
 
 ### Adding New Migration Types

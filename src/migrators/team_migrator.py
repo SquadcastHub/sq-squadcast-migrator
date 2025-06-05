@@ -1,11 +1,14 @@
 import logging
-from typing import Dict, Any
+from typing import Dict, Optional
 import click
 from src.alerting_client import AlertingClient
 from src.squadcast.client import SquadcastClient
 from tqdm import tqdm
 from config.config import settings
 from src.schemas.migration import TeamMigrationStats
+from src.db.db_manager import DBManager
+from src.schemas.team import CreateTeamRequest, Team
+from src.schemas.squad import CreateSquadRequest
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +20,8 @@ class TeamMigrator:
         self,
         source_client: AlertingClient,
         squadcast_client: SquadcastClient,
-        user_migration_map: Dict[str, str] = None,
+        db_manager: Optional[DBManager] = None,
+        user_migration_map: Optional[Dict[str, str]] = None
     ):
         """
         Initialize the team migrator.
@@ -25,13 +29,38 @@ class TeamMigrator:
         Args:
             source_client: Source alerting system client (implements AlertingClient)
             squadcast_client: Squadcast API client
-            user_migration_map: Optional mapping of source user IDs to Squadcast user IDs
         """
         self.source_client = source_client
         self.squadcast_client = squadcast_client
+        self.db_manager = db_manager or DBManager()
+
         self.user_migration_map = user_migration_map or {}
         self.selected_team = None  # Selected team for squad migration
         self.migration_mode = None  # Will be set during migration based on user input
+
+    def _prompt_migration_mode(self):
+        """
+        Prompt the user to choose a migration mode.
+        """
+        click.echo("\n🔄 Team Migration Options:\n")
+        click.echo("1) Migrate as separate teams in Squadcast (default)")
+        click.echo("2) Migrate as squads within a single team in Squadcast\n")
+
+        choice = click.prompt(
+            "Choose migration mode",
+            type=click.Choice(["1", "2"]),
+            default="1",
+            show_choices=False,
+        )
+
+        if choice == "1":
+            self.migration_mode = "separate_teams"
+            logger.info("Migration mode: Teams will be migrated as separate teams")
+        else:
+            self.migration_mode = "squads_in_team"
+            logger.info(
+                "Migration mode: Teams will be migrated as squads within a single team"
+            )
 
     def migrate(self) -> TeamMigrationStats:
         """
@@ -53,7 +82,6 @@ class TeamMigrator:
             skipped_count=0,
             success_count=0,
             failure_count=0,
-            migration_map={},
             errors=[]
         )
 
@@ -83,6 +111,18 @@ class TeamMigrator:
                     logger.warning(f"Team without ID found, skipping: {source_team}")
                     skipped_count += 1
                     continue
+                    
+                existing_map = self.db_manager.get_migration_map(
+                    source_id=team_id,
+                    source_system=settings.system,
+                    entity_type="team"
+                )
+                if existing_map:
+                    logger.info(
+                        f"Skipping team {source_team.get('name')} ({team_id}) - already migrated"
+                    )
+                    migration_stats.skipped_count += 1
+                    continue
 
                 team_data = self.source_client.get_team_details(team_id)
                 sq_team_data = self.source_client.transform_team(
@@ -94,7 +134,12 @@ class TeamMigrator:
                 if self.migration_mode == "separate_teams":
                     response = self.squadcast_client.create_team(sq_team_data)
                     sq_team = response.team
-                    migration_stats.migration_map[team_id] = sq_team.id
+                    self.db_manager.record_migration_map(
+                        source_id=team_id,
+                        squadcast_id=sq_team.id,
+                        source_system=settings.system,
+                        entity_type="team",
+                    )
 
                     logger.info(f"Successfully migrated team: {sq_team.name}")
                 else:
@@ -102,9 +147,14 @@ class TeamMigrator:
                         self.selected_team, squad_data=sq_team_data
                     )
                     sq_squad = response.squad
-                    migration_stats.migration_map[team_id] = sq_squad.id
+                    self.db_manager.record_migration_map(
+                        source_id=team_id,
+                        squadcast_id=sq_squad.id,
+                        source_system=settings.system,
+                        entity_type="team",
+                    )
                     logger.info(
-                        f"Successfully migrated team {source_team.get('name')} as a squad in {self.selected_team.id}"
+                        f"Successfully migrated team {source_team.get('name')} as a squad in {self.selected_team.name}"
                     )
 
                 migration_stats.success_count += 1
@@ -113,6 +163,19 @@ class TeamMigrator:
                 logger.error(
                     f"Failed to migrate team {source_team.get('name', 'Unknown')}: {str(e)}"
                 )
+
+                self.db_manager.record_failed_migration(
+                    source_id=source_team.get("id", "unknown"),
+                    source_system=settings.system,
+                    entity_type="team",
+                    entity_data=sq_team_data.model_dump(),
+                    error_message=str(e),
+                    additional_info={
+                        "migration_mode": self.migration_mode,
+                        "selected_team": {"id": self.selected_team.id, "name": self.selected_team.name} if self.selected_team else None,
+                    }
+                )
+
                 migration_stats.failure_count += 1
                 migration_stats.errors.append(
                     f"Failed to migrate team {source_team.get('name', 'Unknown')}: {str(e)}"
@@ -120,26 +183,99 @@ class TeamMigrator:
 
         return migration_stats
 
-    def _prompt_migration_mode(self):
+    def retry_failed_migrations(self) -> TeamMigrationStats:
         """
-        Prompt the user to choose a migration mode.
+        Retry previously failed team migrations.
+
+        Returns:
+            Dictionary with retry migration statistics
         """
-        click.echo("\n🔄 Team Migration Options:\n")
-        click.echo("1) Migrate as separate teams in Squadcast (default)")
-        click.echo("2) Migrate as squads within a single team in Squadcast\n")
+        logger.info(f"Starting retry of failed team migrations from {settings.system}")
 
-        choice = click.prompt(
-            "Choose migration mode",
-            type=click.Choice(["1", "2"]),
-            default="1",
-            show_choices=False,
-        )
-
-        if choice == "1":
-            self.migration_mode = "separate_teams"
-            logger.info("Migration mode: Teams will be migrated as separate teams")
-        else:
-            self.migration_mode = "squads_in_team"
-            logger.info(
-                "Migration mode: Teams will be migrated as squads within a single team"
+        failed_migrations = self.db_manager.get_failed_migrations(entity_type="team", status="failed")
+        if not failed_migrations:
+            logger.info("No failed team migrations to retry")
+            return TeamMigrationStats(
+                total_count=0,
+                success_count=0,
+                failure_count=0,
+                skipped_count=0,
+                errors=[],
             )
+            
+        migration_stats = TeamMigrationStats(
+            total_count=len(failed_migrations),
+            success_count=0,
+            failure_count=0,
+            skipped_count=0,
+            errors=[],
+        )
+        logger.info(f"Found {len(failed_migrations)} failed team migrations to retry")
+
+        for failed_migration in tqdm(failed_migrations, desc="Retrying failed team migrations"):
+            record_id = failed_migration["id"]
+            sq_team_data = failed_migration["entity_data"]
+            source_id = failed_migration["source_id"]
+            additional_info = failed_migration.get("additional_info", {})
+            migration_mode = additional_info.get("migration_mode", "separate_teams")
+            selected_team = Team(**additional_info.get("selected_team", {})) if additional_info.get("selected_team") else None
+            logger.info(f"Retrying migration for team {sq_team_data.get('name', 'Unknown')} (ID: {source_id})")
+
+            try:
+                if migration_mode == "separate_teams":
+                    response = self.squadcast_client.create_team(team_data=CreateTeamRequest(**sq_team_data))
+                    sq_team = response.team
+                    self.db_manager.record_migration_map(
+                        source_id=source_id,
+                        squadcast_id=sq_team.id,
+                        source_system=settings.system,
+                        entity_type="team",
+                    )
+
+                    logger.info(f"Successfully migrated team: {sq_team.name}")
+                else:
+                    if not selected_team:
+                        logger.error(
+                            "No selected team found for squad migration, skipping"
+                        )
+                        migration_stats.skipped_count += 1
+                        continue
+
+                    response = self.squadcast_client.create_squad(
+                        selected_team, squad_data=CreateSquadRequest(**sq_team_data)
+                    )
+                    sq_squad = response.squad
+                    self.db_manager.record_migration_map(
+                        source_id=source_id,
+                        squadcast_id=sq_squad.id,
+                        source_system=settings.system,
+                        entity_type="team",
+                    )
+                    logger.info(
+                        f"Successfully migrated team {sq_squad.name} as a squad in {selected_team.name}"
+                    )
+
+                logger.info(
+                    f"Successfully migrated team on retry: {sq_team_data.get('name')} ({source_id})"
+                )
+                
+                self.db_manager.update_migration_status(record_id, status="resolved")
+                
+                migration_stats.success_count += 1
+
+            except Exception as e:
+                error_message = f"Failed to migrate team {sq_team_data.get('name')} on retry: {str(e)}"
+                logger.error(error_message)
+                
+                self.db_manager.increment_retry_count(record_id)
+                self.db_manager.update_migration_status(
+                    record_id,
+                    status="failed",
+                    error_message=str(e),
+                )
+
+                migration_stats.errors.append(error_message)
+                migration_stats.failure_count += 1
+
+        return migration_stats
+
