@@ -15,18 +15,18 @@ def main():
     output_dir = Path("terraform_output")
     provider_config = {
         "host": "https://api.squadcast.com",
-        "token": "${var.squadcast_token}"  # Use variable for sensitive data
+        "token": "Something"  # Use variable for sensitive data
     }
-    
+
     manager = TerraformConfigManager(output_dir, provider_config)
-    
+
     # Create a team - terraform_name will be "engineering_team"
     team = SquadcastTeam(
         display_name="Engineering Team",
         description="Core engineering team"
     )
     manager.add_resource(team)
-    
+
     # Create a user - terraform_name will be "jane_smith"
     user = SquadcastUser(
         email="jane.smith@example.com",
@@ -47,7 +47,7 @@ def main():
         team_id=team.terraform_id_reference  # Reference the team
     )
     manager.add_resource(escalation_policy)
-    
+
     # Create a service - terraform_name will be "api_service"
     service = SquadcastService(
         display_name="API Service",
@@ -66,10 +66,10 @@ def main():
         alert_sources=["datadog", "prometheus"]
     )
     manager.add_resource(service)
-    
+
     # Generate Terraform configuration files
     result = manager.export_terraform_config()
-    
+
     if result["status"] == "success":
         print(f"Generated Terraform configuration in: {result['output_dir']}")
         print("Resource counts:", result["resource_counts"])

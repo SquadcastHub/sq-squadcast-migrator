@@ -30,20 +30,14 @@ class TerraformResource(BaseModel):
     class Config:
         extra = "forbid"  # Prevent additional attributes
 
-class HCLSerializable:
-    """Mixin to provide HCL serialization capabilities"""
-    def to_hcl(self) -> str:
-        # Implementation for converting to HCL format
-        pass
-
-class SquadcastResource(TerraformResource, HCLSerializable):
+class SquadcastResource(TerraformResource):
     """Base class for Squadcast-specific resources"""
     pass
 ```
 
 ### 2. Nested Relationships
 
-The system handles nested relationships by using Pydantic model composition and Terraform resource references. The `_format_hcl_value` method recursively formats nested structures, ensuring proper HCL syntax.
+The system handles nested relationships by using Pydantic model composition and Terraform resource references.
 
 1. **Model Composition**: Resources with nested structures use Pydantic model composition:
 
@@ -58,31 +52,22 @@ class ServiceTag(BaseModel):
 class ServiceMaintainer(BaseModel):
     id: str
     type: Literal["user", "squad"]
+```
 
+2. **Resource References**: Cross-resource references use Terraform interpolation syntax. The `TerraformResource` class provides a `terraform_id_reference` property for generating these references. In the `SquadcastService` model, `team_id` and `escalation_policy_id` are used to reference other resources:
+
+```python
 class SquadcastService(SquadcastResource):
-    name: str
+    display_name: str
+    team_id: str = Field(..., description="ID of the team")
+    escalation_policy_id: str = Field(..., description="ID of the escalation policy")
     maintainer: ServiceMaintainer
     tags: Optional[List[ServiceTag]]
 ```
 
-2. **Resource References**: Cross-resource references use Terraform interpolation syntax. The `TerraformResource` class provides a `terraform_id_reference` property for generating these references:
-
-```python
-service = SquadcastService(
-    name="API Service",
-    team_id="${squadcast_team.engineering.id}",  # Reference to team
-    maintainer=ServiceMaintainer(
-        id="${squadcast_user.lead_engineer.id}",  # Reference to user
-        type="user"
-    )
-)
-```
-The `_format_hcl_value` method now handles these references more robustly, ensuring that nested resources are correctly formatted.
-```
-
-The HCL serialization handles these relationships and data types appropriately:
 
 1. **Sets**: Python sets are automatically converted to sorted lists during HCL serialization for consistent output:
+
 ```python
 class SquadcastUser(SquadcastResource):
     abilities: Optional[Set[UserAbility]] = Field(
@@ -91,33 +76,81 @@ class SquadcastUser(SquadcastResource):
     )
 
 user = SquadcastUser(
-    abilities={"manage-users", "manage-teams"}
+    abilities=["manage-users", "manage-teams"]
 )
 ```
 
 Generated HCL:
+
 ```hcl
 resource "squadcast_user" "example" {
-  abilities = ["manage-teams", "manage-users"]  # Note: Sorted for consistency
+  abilities = ["manage-teams", "manage-users"] # Note: Sorted for consistency
 }
 ```
 
-2. **Nested Resources and References**: Complex nested structures and cross-resource references:
+
+The following example demonstrates how complex nested structures and cross-resource references are addressed:
+
+```python
+team = SquadcastTeam(
+    terraform_name="engineering",
+    display_name="Engineering Team",
+    description="Core engineering team"
+)
+
+escalation_policy = SquadcastEscalationPolicy(
+    terraform_name="default_escalation_policy",
+    display_name="Default Escalation Policy",
+    team_id=team.terraform_id_reference  # Reference the team
+)
+
+service = SquadcastService(
+    terraform_name="api_service",
+    display_name="API Service",
+    team_id=team.terraform_id_reference,  # Reference to team
+    escalation_policy_id=escalation_policy.terraform_id_reference,  # Reference to escalation policy
+    email_prefix="api-alerts",
+    maintainer=ServiceMaintainer(
+        id="${squadcast_user.lead_engineer.id}",
+        type="user"
+    ),
+    tags=[
+        ServiceTag(key="environment", value="production"),
+        ServiceTag(key="team", value="engineering")
+    ],
+    alert_sources=["datadog", "prometheus"]
+)
+
+# Generate HCL
+hcl = service.to_hcl()
+print(hcl)
+```
+
+Generated HCL:
 
 ```hcl
 resource "squadcast_service" "api_service" {
   name = "API Service"
   team_id = "${squadcast_team.engineering.id}"
-  
+  escalation_policy_id = "${squadcast_escalation_policy.default_escalation_policy.id}"
+  email_prefix = "api-alerts"
+
   maintainer {
     id = "${squadcast_user.lead_engineer.id}"
     type = "user"
   }
-  
+
   tags {
     key = "environment"
     value = "production"
   }
+
+  tags {
+    key = "team"
+    value = "engineering"
+  }
+
+  alert_sources = ["datadog", "prometheus"]
 }
 ```
 
@@ -176,48 +209,85 @@ terraform/
 
 ### 6. Resource Dependencies and References
 
-The system handles resource dependencies and references using explicit references and nested resources.
+The system handles resource dependencies and references using explicit references, ensuring proper linking and dependency management.
 
 1. **Explicit References**:
    - Use Terraform interpolation syntax (`${resource_type.name.attribute}`)
    - References are type-checked at the Pydantic model level
    - HCL serialization preserves reference relationships
 
-2. **Nested Resources**:
-   - Complex resources are represented as nested Pydantic models
-   - Each nested model maps to an HCL block
-   - Validation ensures proper nesting structure
+The system ensures that these dependencies are correctly formatted in the HCL output.
 
-The `_format_hcl_value` method ensures that these dependencies are correctly formatted in the HCL output. It recursively processes nested structures and resource references, providing robust error handling and type validation.
-
-The configuration manager tracks implicit dependencies and generates resources in the correct order. Circular dependencies are handled through Terraform references.
+The configuration manager tracks implicit dependencies and generates resources in the correct order. Circular dependencies are handled through Terraform references, ensuring that resources are created in the correct order.
 
 ### 7. Example Usage
+
+The following example demonstrates how nested resolution works with the generated Terraform configuration:
 
 ```python
 team = SquadcastTeam(
     terraform_name="engineering",
-    name="Engineering Team",
+    display_name="Engineering Team",
     description="Core engineering team"
 )
 
+escalation_policy = SquadcastEscalationPolicy(
+    terraform_name="default_escalation_policy",
+    display_name="Default Escalation Policy",
+    team_id=team.terraform_id_reference  # Reference the team
+)
+
+service = SquadcastService(
+    terraform_name="api_service",
+    display_name="API Service",
+    team_id=team.terraform_id_reference,  # Reference to team
+    escalation_policy_id=escalation_policy.terraform_id_reference,  # Reference to escalation policy
+    email_prefix="api-alerts",
+    maintainer=ServiceMaintainer(
+        id="${squadcast_user.lead_engineer.id}",
+        type="user"
+    ),
+    tags=[
+        ServiceTag(key="environment", value="production"),
+        ServiceTag(key="team", value="engineering")
+    ],
+    alert_sources=["datadog", "prometheus"]
+)
+
 # Generate HCL
-hcl = team.to_hcl()
-
-# Export to file (example)
-# team.export_terraform("terraform/teams/main.tf") # Assuming export_terraform is defined
-
+hcl = service.to_hcl()
 print(hcl)
 ```
 
 Generated HCL:
 
 ```hcl
-resource "squadcast_team" "engineering" {
-  name = "Engineering Team"
-  description = "Core engineering team"
+resource "squadcast_service" "api_service" {
+  name = "API Service"
+  team_id = "${squadcast_team.engineering.id}"
+  escalation_policy_id = "${squadcast_escalation_policy.default_escalation_policy.id}"
+  email_prefix = "api-alerts"
+
+  maintainer {
+    id = "${squadcast_user.lead_engineer.id}"
+    type = "user"
+  }
+
+  tags {
+    key = "environment"
+    value = "production"
+  }
+
+  tags {
+    key = "team"
+    value = "engineering"
+  }
+
+  alert_sources = ["datadog", "prometheus"]
 }
 ```
+
+In this example, the `team_id` and `escalation_policy_id` in the `SquadcastService` resource use Terraform interpolation syntax to reference the `SquadcastTeam` and `SquadcastEscalationPolicy` resources. The `_format_hcl_value` method ensures that these references are correctly formatted in the generated HCL.
 
 ## Benefits
 
@@ -245,4 +315,4 @@ resource "squadcast_team" "engineering" {
 1. Set up project structure
 2. Implement base models and serialization
 3. Create test cases
-4. Document usage and examples
+4. Document usage and examples.
