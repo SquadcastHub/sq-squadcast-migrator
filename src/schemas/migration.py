@@ -11,7 +11,6 @@ class MigrationStats(BaseSchema):
     success_count: int = 0
     failure_count: int = 0
     skipped_count: Optional[int] = 0
-    migration_map: Dict[str, str] = Field(default_factory=dict)
     errors: Optional[List[str]] = Field(default_factory=list)
     
     
@@ -24,4 +23,4 @@ class UserMigrationStats(MigrationStats):
 class TeamMigrationStats(MigrationStats):
     """Team migration statistics."""
 
-    migration_mode: str = ""
+    pass

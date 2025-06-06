@@ -1,174 +1,127 @@
 #!/usr/bin/env python3
-import click
+import os
 import logging
 import sys
-import os
-from typing import Optional
+from pathlib import Path
 from datetime import datetime
 
 from config.config import settings
-from src.opsgenie.client import OpsGenieClient
-from src.squadcast.client import SquadcastClient
-from src.migrators.user_migrator import UserMigrator
-from src.migrators.team_migrator import TeamMigrator
-from src.logging import formatter
+from src.migrators.opsgenie_migrator import OpsGenieTerraformMigrator
+from src.logging.formatter import CustomFormatter
 
 os.makedirs("logs", exist_ok=True)
 
-log_filename = f"logs/migration_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+log_filename = f"logs/terraform_migration_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
 
 log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-custom_formatter = formatter.CustomFormatter(log_format)
+custom_formatter = CustomFormatter(log_format)
 
-# Configure root logger for all modules
 root_logger = logging.getLogger()
 root_logger.setLevel(settings.log_level)
 root_logger.handlers.clear()
 
-# Add console handler
 console_handler = logging.StreamHandler(sys.stdout)
 console_handler.setFormatter(custom_formatter)
 root_logger.addHandler(console_handler)
 
-# Add file handler
 file_handler = logging.FileHandler(log_filename)
 file_handler.setFormatter(custom_formatter)
 root_logger.addHandler(file_handler)
 
 logger = logging.getLogger(__name__)
-logger.propagate = True
-
 logger.info(f"💾 Logs will be stored in: {log_filename}")
 
-
-@click.group()
-@click.option(
-    "--system",
-    "-s",
-    type=click.Choice(["opsgenie", "pagerduty"], case_sensitive=False),
-    help="Source alerting system to migrate from (opsgenie or pagerduty)",
-)
-@click.option("--opsgenie-api-key", "-o", help="OpsGenie API key")
-@click.option("--pagerduty-api-token", "-p", help="PagerDuty API token")
-@click.option("--squadcast-refresh-token", "-s", help="Squadcast refresh token")
-@click.option(
-    "--dry-run/--no-dry-run",
-    default=True,
-    is_flag=True,
-    help="Run in dry-run mode (no actual changes)",
-)
-@click.option("--verbose", "-v", is_flag=True, help="Verbose output")
-@click.pass_context
-def cli(
-    ctx,
-    opsgenie_api_key: Optional[str],
-    pagerduty_api_token: Optional[str],
-    squadcast_refresh_token: Optional[str],
-    system: Optional[str],
-    dry_run: bool,
-    verbose: bool,
-):
-    """
-    Squadcast Migration Tool.
-    """
-    if verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
-
-    if opsgenie_api_key:
-        settings.opsgenie_api_key = opsgenie_api_key
-
-    if squadcast_refresh_token:
-        settings.squadcast_refresh_token = squadcast_refresh_token
-
-    if pagerduty_api_token:
-        settings.pagerduty_api_token = pagerduty_api_token
-
-    if system:
-        settings.system = system
-
-    settings.dry_run = dry_run
-
-    # Store clients in context for sub-commands
-    ctx.ensure_object(dict)
-    if settings.system == "opsgenie":
-        ctx.obj["source_client"] = OpsGenieClient()
-    elif settings.system == "pagerduty":
-        ctx.obj["source_client"] = None  # Replace with PagerDutyClient() if needed
-    ctx.obj["squadcast_client"] = SquadcastClient()
-
-    if dry_run:
-        logger.info("Running in DRY RUN mode. No changes will be made.")
-
-
-@cli.command("migrate-users")
-@click.pass_context
-def migrate_users(ctx):
-    """Migrate users to Squadcast."""
-    source_client = ctx.obj["source_client"]
-    squadcast_client = ctx.obj["squadcast_client"]
-
-    logger.info("🚀 Starting user migration...")
-
-    migrator = UserMigrator(source_client, squadcast_client)
-    result = migrator.migrate()
-    ctx.obj["user_migration_map"] = result.migration_map
-
-    logger.info("✅ User migration completed.")
-    logger.info(
-        f"📊 Summary → Total: {result.total_count}, "
-        f"✅ Success: {result.success_count}, "
-        f"⏭️ Skipped: {result.skipped_count}, "
-        f"❌ Failed: {result.failure_count}"
-    )
-
-    if result.failure_count > 0:
-        logger.warning("⚠️ Some users failed to migrate. Check logs above for details.")
-
-
-@cli.command("migrate-teams")
-@click.pass_context
-def migrate_teams(ctx):
-    """Migrate teams to Squadcast."""
-    source_client = ctx.obj["source_client"]
-    squadcast_client = ctx.obj["squadcast_client"]
-
-    user_migration_map = ctx.obj.get("user_migration_map", {})
-    if not user_migration_map:
-        logger.warning(
-            "⚠️  No user migration map provided — teams will be migrated without members."
-        )
+def main():
+    """Main entry point for the script."""
     
-    logger.info("🚀 Starting team migration...")
-
-    migrator = TeamMigrator(source_client, squadcast_client, user_migration_map)
-    result = migrator.migrate()
-    ctx.obj["team_migration_map"] = result.migration_map
-
-    logger.info("Team migration completed successfully ✅")
-    logger.info(
-        f"📊 Summary → Total: {result.total_count}, "
-        f"✅ Success: {result.success_count}, "
-        f"⏭️ Skipped: {result.skipped_count}, "
-        f"❌ Failed: {result.failure_count}"
-    )
-
-    if result.failure_count > 0:
-        logger.warning("⚠️ Some teams failed to migrate. Check logs above for details.")
-
-
-@cli.command("migrate-all")
-@click.pass_context
-def migrate_all(ctx):
-    """Migrate all entities to Squadcast."""
-    logger.info(f"Starting full migration from {settings.system} to Squadcast")
-
-    ctx.invoke(migrate_users)
-    ctx.invoke(migrate_teams)
-
-    # Add other migration commands here as they are implemented
-
-    logger.info("Full migration completed successfully ✅")
-
+    output_dir = Path("terraform_output")
+    
+    # Configure provider settings
+    provider_config = {
+        "region": "${var.squadcast_region}",  # Use a variable for region (us or eu)
+        "refresh_token": "${var.squadcast_refresh_token}"  # Use a variable for sensitive data
+    }
+    
+    try:        
+        logger.info(f"Initializing {settings.system} Terraform migrator")
+        migrator = OpsGenieTerraformMigrator(
+            output_dir=output_dir,
+            provider_config=provider_config
+        )
+        
+        # Migrate users
+        logger.info(f"🚀 Starting user migration from {settings.system} to Terraform")
+        user_result = migrator.migrate_users()
+        logger.info(
+            f"📊 User migration summary → "
+            f"Total: {user_result.total_count}, "
+            f"✅ Success: {user_result.success_count}, "
+            f"❌ Failed: {user_result.failure_count}"
+        )
+        
+        # Export Terraform configurations
+        logger.info("📄 Exporting Terraform configurations")
+        export_result = migrator.export_terraform_config()
+        
+        if export_result["status"] == "success":
+            logger.info(f"✅ Successfully generated Terraform configuration in: {export_result['output_dir']}")
+            logger.info(f"📊 Resource counts: {export_result['resource_counts']}")
+            
+            # Create a variables.tf file with placeholder for Squadcast API token
+            variables_file = output_dir / "variables.tf"
+            variables_content = [
+                'variable "squadcast_refresh_token" {',
+                '  description = "Squadcast API token"',
+                '  type        = string',
+                '  sensitive   = true',
+                '}'
+                '',
+                'variable "squadcast_region" {',
+                '  description = "Squadcast region (us or eu)"',
+                '  type        = string',
+                '  default     = "us"',  # Default to US region, can be changed in terraform.tfvars',
+                '}'
+            ]
+            
+            with open(variables_file, "w") as f:
+                f.write("\n".join(variables_content))
+            
+            logger.info(f"✅ Created variables.tf file for sensitive data")
+            
+            # Create a terraform.tfvars.example file
+            tfvars_file = output_dir / "terraform.tfvars.example"
+            tfvars_content = [
+                '# Rename this file to terraform.tfvars and update with your actual token',
+                'squadcast_refresh_token = "YOUR_SQUADCAST_API_TOKEN"'
+                'squadcast_region = "REGION"  # e.g., "us" or "eu"'
+            ]
+            
+            with open(tfvars_file, "w") as f:
+                f.write("\n".join(tfvars_content))
+            
+            logger.info(f"✅ Created terraform.tfvars.example file as a template")
+            
+            print("\n" + "="*80)
+            print("🎉 MIGRATION COMPLETED SUCCESSFULLY!")
+            print("="*80)
+            print(f"Terraform configuration generated in: {output_dir}")
+            print("\nTo apply this configuration:")
+            print("1. Rename terraform.tfvars.example to terraform.tfvars")
+            print("2. Update terraform.tfvars with your Squadcast API token")
+            print("3. Run:")
+            print(f"   cd {output_dir}")
+            print("   terraform init")
+            print("   terraform plan  # Review the planned changes")
+            print("   terraform apply # Apply the changes")
+            print("="*80 + "\n")
+        else:
+            logger.error(f"❌ Failed to export Terraform configuration: {export_result['message']}")
+    
+    except Exception as e:
+        logger.exception(f"❌ Migration failed: {str(e)}")
+        return 1
+    
+    return 0
 
 if __name__ == "__main__":
-    cli(obj={})
+    sys.exit(main())
