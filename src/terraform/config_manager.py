@@ -54,10 +54,32 @@ class TerraformConfigManager:
         
         provider_path.write_text('\n'.join(content))
 
+    def generate_root_main_tf(self):
+        """Generate a root main.tf file that includes all modules"""
+        main_path = self.output_dir / "main.tf"
+        
+        # Generate module blocks for each resource type
+        module_blocks = []
+        for resource_type in self.resources.keys():
+            # Get module name (e.g., "user" from "squadcast_user")
+            module_name = resource_type.split('_')[1]
+            
+            module_block = [
+                f'module "{module_name}" {{',
+                f'  source = "./{module_name}"',
+                '}'
+            ]
+            module_blocks.append('\n'.join(module_block))
+        
+        if module_blocks:
+            main_content = '\n\n'.join(module_blocks)
+            main_path.write_text(main_content)
+
     def generate_resource_files(self):
         """Generate Terraform configuration files for all resources"""
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.generate_provider_file()
+        self.generate_root_main_tf()
         
         # Group resources by type into separate files
         for resource_type, resources in self.resources.items():
@@ -79,6 +101,19 @@ class TerraformConfigManager:
             variables_tf = resource_dir / "variables.tf"
             if not variables_tf.exists():
                 variables_tf.touch()
+
+            # Generate terraform.tf for provider configuration
+            terraform_tf = resource_dir / "terraform.tf"
+            terraform_content = [
+                'terraform {',
+                '  required_providers {',
+                '    squadcast = {',
+                '      source = "SquadcastHub/squadcast"',
+                '    }',
+                '  }',
+                '}',
+            ]
+            terraform_tf.write_text('\n'.join(terraform_content))
 
     def export_terraform_config(self):
         """Export all resources as Terraform configuration files"""
