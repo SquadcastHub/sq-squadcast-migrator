@@ -5,13 +5,13 @@ from .service import SquadcastService, ServiceTag, ServiceMaintainer
 from .escalation_policy import SquadcastEscalationPolicy
 
 __all__ = [
-    'SquadcastTeam',
-    'SquadcastUser',
-    'UserRole',
-    'UserAbility',
-    'SquadcastService',
-    'ServiceTag',
-    'ServiceMaintainer',
-    'SquadcastEscalationPolicy',
-    'SquadcastTeamMember'
+    "SquadcastTeam",
+    "SquadcastUser",
+    "UserRole",
+    "UserAbility",
+    "SquadcastService",
+    "ServiceTag",
+    "ServiceMaintainer",
+    "SquadcastEscalationPolicy",
+    "SquadcastTeamMember",
 ]

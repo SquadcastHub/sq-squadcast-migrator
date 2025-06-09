@@ -176,11 +176,6 @@ dependencies = [
     { name = "tqdm" },
 ]
 
-[package.optional-dependencies]
-dev = [
-    { name = "ruff" },
-]
-
 [package.dev-dependencies]
 dev = [
     { name = "ruff" },
@@ -192,10 +187,8 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.6.1" },
     { name = "python-dotenv", specifier = "==1.0.0" },
     { name = "requests", specifier = "==2.31.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = "==0.11.11" },
     { name = "tqdm", specifier = "==4.66.1" },
 ]
-provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
 dev = [{ name = "ruff", specifier = ">=0.11.11" }]

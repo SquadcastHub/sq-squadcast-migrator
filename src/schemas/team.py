@@ -1,7 +1,9 @@
 """Team models for Squadcast API."""
+
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 from .base import BaseSchema
+
 
 class BaseTeam(BaseSchema):
     """Base model for a team."""
@@ -14,12 +16,14 @@ class CreateTeamRequest(BaseTeam):
     """Model for creating a team."""
 
     members: Optional[List[str]] = Field(default_factory=list)
-    
+
+
 class TeamMember(BaseSchema):
     """Model for a team member."""
 
     user_id: str
     role_ids: List[str] = Field(default_factory=list)
+
 
 class Role(BaseModel):
     id: str
@@ -28,6 +32,7 @@ class Role(BaseModel):
     default: bool
     abilities: Dict[str, Dict[str, bool]]
 
+
 class Team(BaseTeam):
     """Model for team response from API."""
 
@@ -35,6 +40,8 @@ class Team(BaseTeam):
     members: Optional[List[TeamMember]] = Field(default_factory=list)
     roles: List[Role] = Field(default_factory=list)
 
+
 class CreateTeamResponse(BaseSchema):
     """Model for creating a team response."""
+
     team: Team

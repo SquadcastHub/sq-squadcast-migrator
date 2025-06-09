@@ -5,7 +5,7 @@ from src.terraform.models import (
     SquadcastService,
     SquadcastEscalationPolicy,
     ServiceMaintainer,
-    ServiceTag
+    ServiceTag,
 )
 from src.terraform.config_manager import TerraformConfigManager
 
@@ -15,15 +15,14 @@ def main():
     output_dir = Path("terraform_output")
     provider_config = {
         "host": "https://api.squadcast.com",
-        "token": "Something"  # Use variable for sensitive data
+        "token": "Something",  # Use variable for sensitive data
     }
 
     manager = TerraformConfigManager(output_dir, provider_config)
 
     # Create a team - terraform_name will be "engineering_team"
     team = SquadcastTeam(
-        display_name="Engineering Team",
-        description="Core engineering team"
+        display_name="Engineering Team", description="Core engineering team"
     )
     manager.add_resource(team)
 
@@ -33,18 +32,14 @@ def main():
         first_name="Jane",
         last_name="Smith",
         role="admin",
-        abilities={
-            "manage-teams",
-            "manage-users",
-            "manage-api-tokens"
-        }
+        abilities={"manage-teams", "manage-users", "manage-api-tokens"},
     )
     manager.add_resource(user)
 
     # Create an escalation policy - terraform_name will be "default_escalation_policy"
     escalation_policy = SquadcastEscalationPolicy(
         display_name="Default Escalation Policy",
-        team_id=team.terraform_id_reference  # Reference the team
+        team_id=team.terraform_id_reference,  # Reference the team
     )
     manager.add_resource(escalation_policy)
 
@@ -55,15 +50,12 @@ def main():
         escalation_policy_id=escalation_policy.terraform_id_reference,  # Use ID reference
         email_prefix="api-alerts",
         description="Main API service monitoring",
-        maintainer=ServiceMaintainer(
-            id=user.terraform_id_reference,
-            type="user"
-        ),
+        maintainer=ServiceMaintainer(id=user.terraform_id_reference, type="user"),
         tags=[
             ServiceTag(key="environment", value="production"),
-            ServiceTag(key="team", value="engineering")
+            ServiceTag(key="team", value="engineering"),
         ],
-        alert_sources=["datadog", "prometheus"]
+        alert_sources=["datadog", "prometheus"],
     )
     manager.add_resource(service)
 

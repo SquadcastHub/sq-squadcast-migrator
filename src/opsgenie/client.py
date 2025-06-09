@@ -105,15 +105,12 @@ class OpsGenieClient(AlertingClient):
             return SquadcastTeam(
                 name=name,
                 description=og_team.get("description", ""),
-                members=sq_members
+                members=sq_members,
             )
         elif migration_mode == "squads_in_team":
-            return CreateSquadRequest(
-                name=name,
-                members=sq_members
-            )
+            return CreateSquadRequest(name=name, members=sq_members)
         raise ValueError(f"Unknown migration mode: {migration_mode}")
-    
+
     def get_teams(self) -> List[Dict[str, Any]]:
         logger.info("Fetching teams from OpsGenie")
         response = self._make_request("GET", "teams")

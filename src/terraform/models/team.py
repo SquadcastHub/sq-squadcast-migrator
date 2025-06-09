@@ -7,47 +7,36 @@ from .utils import generate_terraform_name
 
 class SquadcastTeam(TerraformResource):
     """Represents a Squadcast team resource in Terraform.
-    
-    The team resource manages team metadata like name and description. 
+
+    The team resource manages team metadata like name and description.
     Team names must be unique within an organization.
-    
+
     Examples:
         >>> team = SquadcastTeam(display_name="Engineering Team")
         >>> team.terraform_name
         'engineering_team'
     """
-    display_name: str = Field(
-        ...,
-        description="Display name of the team"
-    )
-    
+
+    display_name: str = Field(..., description="Display name of the team")
+
     # Optional fields
-    description: Optional[str] = Field(
-        None,
-        description="Description of the team"
-    )
-    
+    description: Optional[str] = Field(None, description="Description of the team")
+
     # Read-only fields
-    id: Optional[str] = Field(
-        None,
-        description="Team ID (read-only)",
-        readonly=True
-    )
+    id: Optional[str] = Field(None, description="Team ID (read-only)", readonly=True)
     default: Optional[bool] = Field(
         None,
         description="Indicates if this is the default team (read-only)",
-        readonly=True
+        readonly=True,
     )
     default_role_ids: Optional[Dict[str, str]] = Field(
-        None,
-        description="Map of default role IDs (read-only)",
-        readonly=True
+        None, description="Map of default role IDs (read-only)", readonly=True
     )
 
     def __init__(self, **data):
         """Initialize a team with auto-generated terraform_name if not provided."""
-        if 'terraform_name' not in data and 'display_name' in data:
-            data['terraform_name'] = generate_terraform_name(data['display_name'])
+        if "terraform_name" not in data and "display_name" in data:
+            data["terraform_name"] = generate_terraform_name(data["display_name"])
         super().__init__(**data)
 
     @property
@@ -58,6 +47,6 @@ class SquadcastTeam(TerraformResource):
     def model_dump(self, *args, **kwargs):
         """Override model_dump to convert display_name to name in output"""
         data = super().model_dump(*args, **kwargs)
-        if 'display_name' in data:
-            data['name'] = data.pop('display_name')
+        if "display_name" in data:
+            data["name"] = data.pop("display_name")
         return data
