@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Dict, List, Union
 
 from .models.base import TerraformResource
-
+from config.config import settings
 
 class TerraformConfigManager:
     """Manages Terraform configuration file generation from Pydantic models"""
@@ -109,6 +109,14 @@ class TerraformConfigManager:
             'squadcast_region = "REGION"  # e.g., "us" or "eu"',
         ]
         tfvars_file.write_text("\n".join(tfvars_content))
+
+        if settings.squadcast_refresh_token or settings.squadcast_region:
+            tfvars_file = self.output_dir / "terraform.tfvars"
+            tfvars_content = [
+                f'squadcast_refresh_token = "{settings.squadcast_refresh_token}"',
+                f'squadcast_region = "{settings.squadcast_region}"',
+            ]
+            tfvars_file.write_text("\n".join(tfvars_content))
 
     def generate_variables_file(self, resource_type: str, variables: Dict[str, str]):
         """Add variables to the root variables.tf file"""

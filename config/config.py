@@ -15,10 +15,7 @@ class Settings(BaseSettings):
     opsgenie_api_url: str = os.getenv("OPSGENIE_API_URL", "https://api.opsgenie.com/v2")
 
     squadcast_refresh_token: str = os.getenv("SQUADCAST_REFRESH_TOKEN", "")
-    squadcast_api_url: str = os.getenv("SQUADCAST_API_URL", "https://api.squadcast.com")
-    squadcast_auth_url: str = os.getenv(
-        "SQUADCAST_AUTH_URL", "https://auth.squadcast.com/oauth/access-token"
-    )
+    squadcast_region: str = os.getenv("SQUADCAST_REGION", "us")
 
     dry_run: bool = os.getenv("DRY_RUN", "True").lower() == "true"
     log_level: str = os.getenv("LOG_LEVEL", "INFO")

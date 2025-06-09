@@ -2,12 +2,12 @@
 import logging
 from pathlib import Path
 from typing import Dict, List
+from tqdm import tqdm
 from src.opsgenie.client import OpsGenieClient
 from src.terraform.config_manager import TerraformConfigManager
 from src.terraform.models import (
     SquadcastUser,
     SquadcastTeam,
-    SquadcastEscalationPolicy,
     SquadcastTeamMember,
 )
 from src.opsgenie.client import OpsGenieClient
@@ -46,7 +46,7 @@ class OpsGenieTerraformMigrator:
         )
 
         self.user_mapping: Dict[str, SquadcastUser] = {}
-        self.team_mapping = {}
+        self.team_mapping: Dict[str, SquadcastTeam] = {}
 
     def migrate_users(self) -> UserMigrationStats:
         """
@@ -65,7 +65,7 @@ class OpsGenieTerraformMigrator:
         failure_count = 0
         errors: List[str] = []
 
-        for user_data in opsgenie_users:
+        for user_data in tqdm(opsgenie_users, desc="Migrating users", unit="user"):
             try:
                 full_name: str = user_data.get("fullName", "")
                 name_parts = full_name.split(" ", 1)
@@ -114,9 +114,9 @@ class OpsGenieTerraformMigrator:
         failure_count = 0
         errors: List[str] = []
 
-        for team_data in opsgenie_teams[:1]:
+        for team_data in tqdm(opsgenie_teams, desc="Migrating teams", unit="team"):
             try:
-                team_id = team_data.get("id")
+                team_id: str = team_data.get("id")
                 if not team_id:
                     logger.warning(f"Team without ID found, skipping: {team_data}")
                     continue
@@ -135,9 +135,10 @@ class OpsGenieTerraformMigrator:
                 self.config_manager.add_resource(team)
 
                 team_members = detailed_team.get("members", [])
-                for member in team_members:
+                team_name = detailed_team.get("name", "Unknown")
+                
+                for member in tqdm(team_members, desc=f"Adding members to {team_name}", unit="member", leave=False):
                     og_user_id = member.get("user", {}).get("id")
-                    print(og_user_id)
                     if not og_user_id or og_user_id not in self.user_mapping:
                         logger.warning(
                             f"User {member.get('user', {}).get('username')} not found in migration map, skipping"
