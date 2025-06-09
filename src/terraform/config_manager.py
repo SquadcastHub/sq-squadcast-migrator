@@ -55,65 +55,114 @@ class TerraformConfigManager:
         provider_path.write_text('\n'.join(content))
 
     def generate_root_main_tf(self):
-        """Generate a root main.tf file that includes all modules"""
+        """Generate a root main.tf file that contains all resource definitions"""
         main_path = self.output_dir / "main.tf"
         
-        # Generate module blocks for each resource type
-        module_blocks = []
-        for resource_type in self.resources.keys():
-            # Get module name (e.g., "user" from "squadcast_user")
-            module_name = resource_type.split('_')[1]
-            
-            module_block = [
-                f'module "{module_name}" {{',
-                f'  source = "./{module_name}"',
-                '}'
-            ]
-            module_blocks.append('\n'.join(module_block))
+        # Directly write all resources to the main.tf file
+        content = []
         
-        if module_blocks:
-            main_content = '\n\n'.join(module_blocks)
-            main_path.write_text(main_content)
+        # Add a header comment
+        content.append('# Main Terraform configuration file containing all resources')
+        content.append('')
+        
+        # Add all resources grouped by resource type
+        for resource_type, resources in self.resources.items():
+            # Add a comment header for the resource type
+            content.append(f'# {resource_type.replace("squadcast_", "").upper()} RESOURCES')
+            content.append('')
+            
+            # Add all resources of this type
+            for resource in resources:
+                content.append(resource.to_hcl())
+                content.append('')
+        
+        # Write the file if we have any resources
+        if len(content) > 2:  # More than just the header
+            main_path.write_text('\n'.join(content))
+    
+    def generate_root_variables_tf(self):
+        """Generate a root variables.tf file for sensitive data"""
+        variables_path = self.output_dir / "variables.tf"
+        
+        content = [
+            'variable "squadcast_refresh_token" {',
+            '  description = "Squadcast API token"',
+            '  type        = string',
+            '  sensitive   = true',
+            '}',
+            '',
+            'variable "squadcast_region" {',
+            '  description = "Squadcast region (us or eu)"',
+            '  type        = string',
+            '  default     = "us"',  # Default to US region, can be changed in terraform.tfvars
+            '}'
+        ]
+        
+        variables_path.write_text('\n'.join(content))
+
+        tfvars_file = self.output_dir / "terraform.tfvars.example"
+        tfvars_content = [
+            '# Rename this file to terraform.tfvars and update with your actual token',
+            'squadcast_refresh_token = "YOUR_SQUADCAST_API_TOKEN"',
+            'squadcast_region = "REGION"  # e.g., "us" or "eu"'
+        ]
+        tfvars_file.write_text('\n'.join(tfvars_content))
+    
+    def generate_variables_file(self, resource_type: str, variables: Dict[str, str]):
+        """Add variables to the root variables.tf file"""
+        variables_tf = self.output_dir / "variables.tf"
+        
+        # Read existing content if the file exists
+        if variables_tf.exists():
+            existing_content = variables_tf.read_text()
+        else:
+            existing_content = ""
+        
+        # Generate new variable definitions
+        content = []
+        for var_name, var_type in variables.items():
+            # Only add if not already in the file
+            if f'variable "{var_name}"' not in existing_content:
+                content.append(f'variable "{var_name}" {{')
+                content.append(f'  type = {var_type}')
+                content.append('}')
+                content.append('')
+        
+        # Append new content to existing content
+        if content:
+            if existing_content:
+                variables_tf.write_text(existing_content + "\n" + '\n'.join(content).strip())
+            else:
+                variables_tf.write_text('\n'.join(content).strip())
 
     def generate_resource_files(self):
         """Generate Terraform configuration files for all resources"""
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.generate_provider_file()
+        self.generate_root_variables_tf()
         self.generate_root_main_tf()
         
-        # Group resources by type into separate files
+        # Create a single outputs.tf file for all resources
+        outputs_tf = self.output_dir / "outputs.tf"
+        output_content = []
+        
+        # Generate outputs for all resource types
         for resource_type, resources in self.resources.items():
-            # Create subdirectory for the resource type
-            resource_dir = self.output_dir / resource_type.split('_')[1]
-            resource_dir.mkdir(exist_ok=True)
+            print(f"Processing resource type: {resource_type}")
             
-            # Generate main.tf with all resources of this type
-            main_tf = resource_dir / "main.tf"
-            content = []
-            
+            # Create a logical output name like "user_ids", "team_ids", etc.
+            logical_output_name = resource_type.replace("squadcast_", "") + "_ids"
+
+            output_content.append(f'output "{logical_output_name}" {{')
+            output_content.append("  value = {")
             for resource in resources:
-                content.append(resource.to_hcl())
-                content.append("")  # Empty line between resources
-            
-            main_tf.write_text('\n'.join(content))
-
-            # Generate empty variables.tf for potential future use
-            variables_tf = resource_dir / "variables.tf"
-            if not variables_tf.exists():
-                variables_tf.touch()
-
-            # Generate terraform.tf for provider configuration
-            terraform_tf = resource_dir / "terraform.tf"
-            terraform_content = [
-                'terraform {',
-                '  required_providers {',
-                '    squadcast = {',
-                '      source = "SquadcastHub/squadcast"',
-                '    }',
-                '  }',
-                '}',
-            ]
-            terraform_tf.write_text('\n'.join(terraform_content))
+                output_content.append(f'    {resource.terraform_name} = {resource.terraform_resource_type}.{resource.terraform_name}.id')
+            output_content.append("  }")
+            output_content.append("}")
+            output_content.append("")  # Empty line between outputs
+        
+        if output_content:
+            outputs_tf.write_text('\n'.join(output_content).strip())
 
     def export_terraform_config(self):
         """Export all resources as Terraform configuration files"""

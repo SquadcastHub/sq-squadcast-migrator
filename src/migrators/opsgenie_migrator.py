@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Dict, List
 from src.opsgenie.client import OpsGenieClient
 from src.terraform.config_manager import TerraformConfigManager
-from src.terraform.models import SquadcastUser, SquadcastTeam, SquadcastEscalationPolicy
+from src.terraform.models import SquadcastUser, SquadcastTeam, SquadcastEscalationPolicy, SquadcastTeamMember
 from src.opsgenie.client import OpsGenieClient
 from src.schemas.migration import UserMigrationStats, TeamMigrationStats
 
@@ -38,7 +38,7 @@ class OpsGenieTerraformMigrator:
         
         self.config_manager = TerraformConfigManager(self.output_dir, self.provider_config)
         
-        self.user_mapping = {}
+        self.user_mapping: Dict[str, SquadcastUser] = {}
         self.team_mapping = {}
 
     def migrate_users(self) -> UserMigrationStats:
@@ -60,20 +60,21 @@ class OpsGenieTerraformMigrator:
         
         for user_data in opsgenie_users:
             try:
-                user_req = self.opsgenie_client.transform_user(user_data)
-                
+                full_name: str = user_data.get("fullName", "")
+                name_parts = full_name.split(" ", 1)
+
                 user = SquadcastUser(
-                    email=user_req.email,
-                    first_name=user_req.first_name,
-                    last_name=user_req.last_name,
-                    role=user_req.role
+                    first_name=name_parts[0] if len(name_parts) > 0 else "",
+                    last_name=name_parts[1] if len(name_parts) > 1 else "",
+                    email=user_data.get("username"),
+                    role="user",
                 )
                 
                 self.config_manager.add_resource(user)
                 
                 self.user_mapping[user_data.get('id')] = user
                 
-                logger.info(f"Successfully migrated user: {user_req.email}")
+                logger.info(f"Successfully migrated user: {user.email}")
                 success_count += 1
                 
             except Exception as e:
@@ -104,7 +105,7 @@ class OpsGenieTerraformMigrator:
         failure_count = 0
         errors: List[str] = []
         
-        for team_data in opsgenie_teams:
+        for team_data in opsgenie_teams[:1]:
             try:
                 team_id = team_data.get('id')
                 if not team_id:
@@ -112,16 +113,36 @@ class OpsGenieTerraformMigrator:
                     continue
                 
                 detailed_team = self.opsgenie_client.get_team_details(team_id)
+
+                description = detailed_team.get('description')
+                if not description or description.strip() == "":
+                    description = f"Team {detailed_team.get('name', 'Unknown')}" # Since description is required by Squadcast Terraform provider
                 
                 team = SquadcastTeam(
                     display_name=detailed_team.get('name', ''),
-                    description=detailed_team.get('description', '')
+                    description=description,
                 )
                 
                 self.config_manager.add_resource(team)
-                
+
+                team_members = detailed_team.get('members', [])
+                for member in team_members:
+                    og_user_id = member.get("user", {}).get("id")
+                    print(og_user_id)
+                    if not og_user_id or og_user_id not in self.user_mapping:
+                        logger.warning(
+                            f"User {member.get('user', {}).get('username')} not found in migration map, skipping"
+                        )
+                        continue
+                    self.config_manager.add_resource(
+                        SquadcastTeamMember(
+                            team_id=team.terraform_id_reference,
+                            user_id=self.user_mapping[og_user_id].terraform_id_reference,
+                        )
+                    )
+
                 self.team_mapping[team_id] = team
-                
+
                 logger.info(f"Successfully migrated team: {detailed_team.get('name')}")
                 success_count += 1
                 

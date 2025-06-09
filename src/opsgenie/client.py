@@ -3,9 +3,8 @@ from typing import Dict, List, Any, Optional, Union
 import logging
 from config.config import settings
 from src.alerting_client import AlertingClient
-from src.schemas.user import CreateUserRequest
-from src.schemas.team import CreateTeamRequest
 from src.schemas.squad import CreateSquadRequest, SquadMember
+from src.terraform.models import SquadcastTeam, SquadcastEscalationPolicy
 
 
 logger = logging.getLogger(__name__)
@@ -52,17 +51,6 @@ class OpsGenieClient(AlertingClient):
             logger.error(f"Request error: {e}")
             raise
 
-    def transform_user(self, og_user: Dict[str, Any]) -> CreateUserRequest:
-        full_name = og_user.get("fullName", "")
-        name_parts = full_name.split(" ", 1)
-
-        return CreateUserRequest(
-            first_name=name_parts[0] if len(name_parts) > 0 else "",
-            last_name=name_parts[1] if len(name_parts) > 1 else "",
-            email=og_user.get("username"),
-            role="user",
-        )
-
     def get_users(self) -> List[Dict[str, Any]]:
         logger.info("Fetching users from OpsGenie")
         all_users = []
@@ -92,7 +80,7 @@ class OpsGenieClient(AlertingClient):
         og_team: Dict[str, Any],
         user_migration_map: Dict[str, str] = None,
         migration_mode: str = "separate_teams",
-    ) -> Union[CreateTeamRequest, CreateSquadRequest]:
+    ) -> Union[SquadcastTeam, CreateSquadRequest]:
         sq_members = []
 
         if og_team.get("members") and user_migration_map:
@@ -114,7 +102,7 @@ class OpsGenieClient(AlertingClient):
         name = og_team.get("name", "")
 
         if migration_mode == "separate_teams":
-            return CreateTeamRequest(
+            return SquadcastTeam(
                 name=name,
                 description=og_team.get("description", ""),
                 members=sq_members

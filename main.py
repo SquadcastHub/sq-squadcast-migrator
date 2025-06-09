@@ -58,6 +58,16 @@ def main():
             f"✅ Success: {user_result.success_count}, "
             f"❌ Failed: {user_result.failure_count}"
         )
+
+        # Migrate teams
+        logger.info(f"🚀 Starting team migration from {settings.system} to Terraform")
+        team_result = migrator.migrate_teams()
+        logger.info(
+            f"📊 Team migration summary → "
+            f"Total: {team_result.total_count}, "
+            f"✅ Success: {team_result.success_count}, "
+            f"❌ Failed: {team_result.failure_count}"
+        )
         
         # Export Terraform configurations
         logger.info("📄 Exporting Terraform configurations")
@@ -66,40 +76,6 @@ def main():
         if export_result["status"] == "success":
             logger.info(f"✅ Successfully generated Terraform configuration in: {export_result['output_dir']}")
             logger.info(f"📊 Resource counts: {export_result['resource_counts']}")
-            
-            # Create a variables.tf file with placeholder for Squadcast API token
-            variables_file = output_dir / "variables.tf"
-            variables_content = [
-                'variable "squadcast_refresh_token" {',
-                '  description = "Squadcast API token"',
-                '  type        = string',
-                '  sensitive   = true',
-                '}'
-                '',
-                'variable "squadcast_region" {',
-                '  description = "Squadcast region (us or eu)"',
-                '  type        = string',
-                '  default     = "us"',  # Default to US region, can be changed in terraform.tfvars',
-                '}'
-            ]
-            
-            with open(variables_file, "w") as f:
-                f.write("\n".join(variables_content))
-            
-            logger.info(f"✅ Created variables.tf file for sensitive data")
-            
-            # Create a terraform.tfvars.example file
-            tfvars_file = output_dir / "terraform.tfvars.example"
-            tfvars_content = [
-                '# Rename this file to terraform.tfvars and update with your actual token',
-                'squadcast_refresh_token = "YOUR_SQUADCAST_API_TOKEN"'
-                'squadcast_region = "REGION"  # e.g., "us" or "eu"'
-            ]
-            
-            with open(tfvars_file, "w") as f:
-                f.write("\n".join(tfvars_content))
-            
-            logger.info(f"✅ Created terraform.tfvars.example file as a template")
             
             print("\n" + "="*80)
             print("🎉 MIGRATION COMPLETED SUCCESSFULLY!")

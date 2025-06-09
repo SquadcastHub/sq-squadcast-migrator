@@ -13,16 +13,6 @@ class AlertingClient(ABC):
     """
 
     @abstractmethod
-    def transform_user(self, user: Dict[str, Any]) -> CreateUserRequest:
-        """
-        Transform a user object from the alerting system to a Squadcast format.
-
-        Returns:
-            Transformed user object.
-        """
-        pass
-
-    @abstractmethod
     def get_users(self) -> List[Dict[str, Any]]:
         """
         Get all users from the alerting system.
