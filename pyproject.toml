@@ -1,5 +1,5 @@
 [project]
-name = "squadcast-migrator"
+name = "squadcastify"
 version = "0.1.0"
 description = "Migration framework to migrate OpsGenie/PagerDuty to Squadcast"
 requires-python = ">=3.13"

@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
-import os
 import logging
+import os
 import sys
-import click
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+
+import click
 
 from config.config import settings
-from src.migrators.opsgenie_migrator import OpsGenieTerraformMigrator
-from src.logging.formatter import CustomFormatter
+from source.opsgenie.migrator import OpsgenieTransformer
+from source.transformer import Transformer
+from squadcastify.logging.formatter import CustomFormatter
+from terraform.exporter import TerraformExporter
 
 os.makedirs("logs", exist_ok=True)
 
@@ -41,7 +44,12 @@ logger.info(f"💾 Logs will be stored in: {log_filename}")
     help="Squadcast refresh token to use for authentication",
 )
 @click.option("--squadcast-region", default="us", help="Squadcast region (us or eu)")
-def main(squadcast_refresh_token, squadcast_region):
+@click.option(
+    "--source",
+    help="Source system to migrate from (default: opsgenie)",
+    default="opsgenie",
+)
+def main(squadcast_refresh_token: str, squadcast_region: str, source: str):
     """Main entry point for the script."""
 
     # Override settings with command line arguments if provided
@@ -53,43 +61,25 @@ def main(squadcast_refresh_token, squadcast_region):
         settings.squadcast_region = squadcast_region
         logger.info(f"Using Squadcast region: {squadcast_region}")
 
-    output_dir = Path("terraform_output")
-
     # Configure provider settings
-    provider_config = {
-        "region": "${var.squadcast_region}",  # Use a variable for region (us or eu)
-        "refresh_token": "${var.squadcast_refresh_token}",  # Use a variable for sensitive data
-    }
+
+    exporter = TerraformExporter(
+        output_dir=Path("terraform_output"),
+        provider_config={
+            "region": "${var.squadcast_region}",  # Use a variable for region (us or eu)
+            "refresh_token": "${var.squadcast_refresh_token}",  # Use a variable for sensitive data
+        },
+    )
 
     try:
         logger.info(f"Initializing {settings.system} Terraform migrator")
-        migrator = OpsGenieTerraformMigrator(
-            output_dir=output_dir, provider_config=provider_config
-        )
 
-        # Migrate users
-        logger.info(f"🚀 Starting user migration from {settings.system} to Terraform")
-        user_result = migrator.migrate_users()
-        logger.info(
-            f"📊 User migration summary → "
-            f"Total: {user_result.total_count}, "
-            f"✅ Success: {user_result.success_count}, "
-            f"❌ Failed: {user_result.failure_count}"
-        )
-
-        # Migrate teams
-        logger.info(f"🚀 Starting team migration from {settings.system} to Terraform")
-        team_result = migrator.migrate_teams()
-        logger.info(
-            f"📊 Team migration summary → "
-            f"Total: {team_result.total_count}, "
-            f"✅ Success: {team_result.success_count}, "
-            f"❌ Failed: {team_result.failure_count}"
-        )
+        transformer: Transformer = OpsgenieTransformer(exporter=exporter)
+        transformer.transform()
 
         # Export Terraform configurations
         logger.info("📄 Exporting Terraform configurations")
-        export_result = migrator.export_terraform_config()
+        export_result = exporter.export()
 
         if export_result["status"] == "success":
             logger.info(
@@ -105,7 +95,7 @@ def main(squadcast_refresh_token, squadcast_region):
             print("1. Rename terraform.tfvars.example to terraform.tfvars")
             print("2. Update terraform.tfvars with your Squadcast API token")
             print("3. Run:")
-            print(f"   cd {output_dir}")
+            print(f"   cd {exporter.output_dir}")
             print("   terraform init")
             print("   terraform plan  # Review the planned changes")
             print("   terraform apply # Apply the changes")

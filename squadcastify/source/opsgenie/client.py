@@ -1,13 +1,19 @@
-import requests
-from typing import Dict, List, Any, Optional, Union
 import logging
-from config.config import settings
-from src.alerting_client import AlertingClient
-from src.schemas.squad import CreateSquadRequest, SquadMember
-from src.terraform.models import SquadcastTeam
+from typing import Any, Dict, List, Optional, Union
 
+import requests
+
+from config.config import settings
+from source.schema import CreateSquadRequest, SquadMember
+from source.alerting_client import AlertingClient
+from squadcastify.terraform.models import SquadcastTeam
 
 logger = logging.getLogger(__name__)
+
+
+def get_services() -> List[Dict[str, Any]]:
+    logger.warning("Services feature is not supported in OpsGenie")
+    return []
 
 
 class OpsGenieClient(AlertingClient):
@@ -128,10 +134,6 @@ class OpsGenieClient(AlertingClient):
 
     def get_schedules(self) -> List[Dict[str, Any]]:
         logger.info("Fetching schedules from OpsGenie")
-        return []
-
-    def get_services(self) -> List[Dict[str, Any]]:
-        logger.warning("Services feature is not supported in OpsGenie")
         return []
 
     # Add more methods as needed

@@ -1,7 +1,7 @@
 """Migrator modules for transferring data between alerting systems and Squadcast."""
 
-from .opsgenie_migrator import OpsGenieTerraformMigrator
+from source.opsgenie.migrator import OpsgenieTransformer
 
 __all__ = [
-    "OpsGenieTerraformMigrator",
+    "OpsgenieTransformer",
 ]
