@@ -8,10 +8,11 @@ from pathlib import Path
 import click
 
 from config.config import settings
-from source.opsgenie.migrator import OpsgenieTransformer
-from source.transformer import Transformer
+from squadcastify.source.opsgenie.client import OpsGenieClient
+from squadcastify.source.opsgenie.migrator import OpsgenieTransformer
+from squadcastify.source.transformer import Transformer
 from squadcastify.logging.formatter import CustomFormatter
-from terraform.exporter import TerraformExporter
+from squadcastify.terraform.exporter import TerraformExporter
 
 os.makedirs("logs", exist_ok=True)
 
@@ -71,10 +72,14 @@ def main(squadcast_refresh_token: str, squadcast_region: str, source: str):
         },
     )
 
+    opsgenie_client = OpsGenieClient()
+
     try:
         logger.info(f"Initializing {settings.system} Terraform migrator")
 
-        transformer: Transformer = OpsgenieTransformer(exporter=exporter)
+        transformer: Transformer = OpsgenieTransformer(
+            exporter=exporter, client=opsgenie_client
+        )
         transformer.transform()
 
         # Export Terraform configurations
@@ -83,14 +88,14 @@ def main(squadcast_refresh_token: str, squadcast_region: str, source: str):
 
         if export_result["status"] == "success":
             logger.info(
-                f"✅ Successfully generated Terraform configuration in: {export_result['output_dir']}"
+                f"✅ Successfully generated Terraform configuration in: {exporter.output_dir}"
             )
             logger.info(f"📊 Resource counts: {export_result['resource_counts']}")
 
             print("\n" + "=" * 80)
             print("🎉 MIGRATION COMPLETED SUCCESSFULLY!")
             print("=" * 80)
-            print(f"Terraform configuration generated in: {output_dir}")
+            print(f"Terraform configuration generated in: {exporter.output_dir}")
             print("\nTo apply this configuration:")
             print("1. Rename terraform.tfvars.example to terraform.tfvars")
             print("2. Update terraform.tfvars with your Squadcast API token")

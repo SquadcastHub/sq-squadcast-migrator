@@ -4,9 +4,9 @@ from typing import Dict, List
 
 from tqdm import tqdm
 
-from source.transformer import Transformer
-from source.opsgenie.client import OpsGenieClient
-from source.schema.migration import (
+from squadcastify.source.transformer import Transformer
+from squadcastify.source.opsgenie.client import OpsGenieClient
+from squadcastify.source.schema.migration import (
     SourceMigratorStats,
 )
 from squadcastify.terraform.exporter import TerraformExporter
@@ -121,7 +121,7 @@ class OpsgenieTransformer(Transformer):
                     description = f"Team {detailed_team.get('name', 'Unknown')}"  # Since description is required by Squadcast Terraform provider
 
                 team = SquadcastTeam(
-                    display_name=detailed_team.get("name", ""),
+                    name=detailed_team.get("name", ""),
                     description=description,
                 )
 

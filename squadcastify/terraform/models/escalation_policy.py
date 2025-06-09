@@ -20,8 +20,8 @@ class SquadcastEscalationPolicy(TerraformResource):
 
     def __init__(self, **data):
         """Initialize an escalation policy with auto-generated terraform_name if not provided."""
-        if "terraform_name" not in data and "display_name" in data:
-            data["terraform_name"] = generate_terraform_name(data["display_name"])
+        if "terraform_name" not in data and "name" in data:
+            data["terraform_name"] = generate_terraform_name(data["name"])
         super().__init__(**data)
 
     @property

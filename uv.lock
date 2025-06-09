@@ -165,7 +165,7 @@ wheels = [
 ]
 
 [[package]]
-name = "squadcast-migrator"
+name = "squadcastify"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

@@ -4,8 +4,8 @@ from typing import Any, Dict, List, Optional, Union
 import requests
 
 from config.config import settings
-from source.schema import CreateSquadRequest, SquadMember
-from source.alerting_client import AlertingClient
+from squadcastify.source.schema.squad import CreateSquadRequest, SquadMember
+from squadcastify.source.alerting_client import AlertingClient
 from squadcastify.terraform.models import SquadcastTeam
 
 logger = logging.getLogger(__name__)

@@ -26,8 +26,10 @@ class SquadcastTeamMember(TerraformResource):
 
     def __init__(self, **data):
         """Initialize a team member with auto-generated terraform_name if not provided."""
-        if "terraform_name" not in data and "user_id" in data:
-            data["terraform_name"] = generate_terraform_name(data["user_id"])
+        if "terraform_name" not in data and "user_id" in data and "team_id" in data:
+            data["terraform_name"] = generate_terraform_name(
+                data["user_id"], data["team_id"]
+            )
         super().__init__(**data)
 
     @property

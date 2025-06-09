@@ -3,7 +3,7 @@
 from typing import Optional, List
 from pydantic import Field
 
-from source.schema.base import BaseSchema
+from squadcastify.source.schema.base import BaseSchema
 
 
 class SourceMigratorStats(BaseSchema):
