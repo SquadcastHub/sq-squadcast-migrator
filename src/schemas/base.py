@@ -1,4 +1,5 @@
 """Base models for the schemas."""
+
 from pydantic import BaseModel
 
 
@@ -8,4 +9,4 @@ class BaseSchema(BaseModel):
     class Config:
         """Pydantic config."""
 
-        extra = "allow"  
+        extra = "allow"
