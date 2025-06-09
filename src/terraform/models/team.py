@@ -17,7 +17,7 @@ class SquadcastTeam(TerraformResource):
         'engineering_team'
     """
 
-    display_name: str = Field(..., description="Display name of the team")
+    name: str = Field(..., description="Name of the team")
 
     # Optional fields
     description: Optional[str] = Field(None, description="Description of the team")
@@ -35,8 +35,8 @@ class SquadcastTeam(TerraformResource):
 
     def __init__(self, **data):
         """Initialize a team with auto-generated terraform_name if not provided."""
-        if "terraform_name" not in data and "display_name" in data:
-            data["terraform_name"] = generate_terraform_name(data["display_name"])
+        if "terraform_name" not in data and "name" in data:
+            data["terraform_name"] = generate_terraform_name(data["name"])
         super().__init__(**data)
 
     @property
@@ -44,9 +44,3 @@ class SquadcastTeam(TerraformResource):
         """Return the Terraform resource type for Squadcast team"""
         return "squadcast_team"
 
-    def model_dump(self, *args, **kwargs):
-        """Override model_dump to convert display_name to name in output"""
-        data = super().model_dump(*args, **kwargs)
-        if "display_name" in data:
-            data["name"] = data.pop("display_name")
-        return data

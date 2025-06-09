@@ -8,7 +8,7 @@ from .utils import generate_terraform_name
 class SquadcastEscalationPolicy(TerraformResource):
     """Represents a Squadcast escalation policy resource in Terraform."""
 
-    display_name: str = Field(..., description="Display name of the escalation policy")
+    name: str = Field(..., description="Name of the escalation policy")
     team_id: str = Field(
         ..., description="ID of the team this escalation policy belongs to"
     )
@@ -29,9 +29,3 @@ class SquadcastEscalationPolicy(TerraformResource):
         """Return the Terraform resource type for Squadcast escalation policy"""
         return "squadcast_escalation_policy"
 
-    def model_dump(self, *args, **kwargs):
-        """Override model_dump to convert display_name to name in output"""
-        data = super().model_dump(*args, **kwargs)
-        if "display_name" in data:
-            data["name"] = data.pop("display_name")
-        return data

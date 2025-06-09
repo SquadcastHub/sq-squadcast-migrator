@@ -12,7 +12,7 @@ class SquadcastTeamMember(TerraformResource):
     Each member is associated with a specific role within the team.
 
     Examples:
-        >>> team = SquadcastTeam(display_name="Engineering Team")
+        >>> team = SquadcastTeam(name="Engineering Team")
         >>> team.terraform_name
         'engineering_team'
     """
@@ -35,7 +35,3 @@ class SquadcastTeamMember(TerraformResource):
         """Return the Terraform resource type for Squadcast team member"""
         return "squadcast_team_member"
 
-    def model_dump(self, *args, **kwargs):
-        """Override model_dump to convert user_id to id in output"""
-        data = super().model_dump(*args, **kwargs)
-        return data
