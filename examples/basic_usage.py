@@ -1,13 +1,14 @@
 from pathlib import Path
-from src.terraform.models import (
-    SquadcastTeam,
-    SquadcastUser,
-    SquadcastService,
-    SquadcastEscalationPolicy,
+
+from squadcastify.terraform.exporter import TerraformExporter
+from squadcastify.terraform.models import (
     ServiceMaintainer,
     ServiceTag,
+    SquadcastEscalationPolicy,
+    SquadcastService,
+    SquadcastTeam,
+    SquadcastUser,
 )
-from src.terraform.config_manager import TerraformConfigManager
 
 
 def main():
@@ -18,7 +19,7 @@ def main():
         "refresh_token": "${var.squadcast_refresh_token}",  # Use a variable for sensitive data
     }
 
-    manager = TerraformConfigManager(output_dir, provider_config)
+    manager = TerraformExporter(output_dir, provider_config)
 
     # Create a team - terraform_name will be "engineering_team"
     team = SquadcastTeam(
@@ -60,7 +61,7 @@ def main():
     manager.add_resource(service)
 
     # Generate Terraform configuration files
-    result = manager.export_terraform_config()
+    result = manager.export()
 
     if result["status"] == "success":
         print(f"Generated Terraform configuration in: {result['output_dir']}")

@@ -1,7 +1,5 @@
-from typing import Optional, Dict, Any, Type
+from typing import Any
 from pydantic import BaseModel, Field, ConfigDict
-
-from .utils import generate_terraform_name
 
 
 class TerraformResource(BaseModel):
@@ -59,7 +57,7 @@ class TerraformResource(BaseModel):
             raise ValueError("HCL cannot represent None/null values")
 
         """Format a value according to HCL syntax rules.
-        
+
         Args:
             value: The value to format. Can be one of:
                 - TerraformResource: Formatted as a resource reference
@@ -70,10 +68,10 @@ class TerraformResource(BaseModel):
                 - BaseModel: Formatted as HCL block
                 - int/float: Converted to string
                 - None: Raises ValueError
-        
+
         Returns:
             str: The HCL-formatted value
-            
+
         Raises:
             ValueError: If the value is None or has an unsupported type
             TypeError: If a dict key is not a string
