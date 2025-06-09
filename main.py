@@ -36,16 +36,19 @@ logger.info(f"💾 Logs will be stored in: {log_filename}")
 
 
 @click.command()
-@click.option('--squadcast-refresh-token', help='Squadcast refresh token to use for authentication')
-@click.option('--squadcast-region', default='us', help='Squadcast region (us or eu)')
+@click.option(
+    "--squadcast-refresh-token",
+    help="Squadcast refresh token to use for authentication",
+)
+@click.option("--squadcast-region", default="us", help="Squadcast region (us or eu)")
 def main(squadcast_refresh_token, squadcast_region):
     """Main entry point for the script."""
-    
+
     # Override settings with command line arguments if provided
     if squadcast_refresh_token:
         settings.squadcast_refresh_token = squadcast_refresh_token
         logger.info("Using Squadcast refresh token from command line")
-    
+
     if squadcast_region:
         settings.squadcast_region = squadcast_region
         logger.info(f"Using Squadcast region: {squadcast_region}")

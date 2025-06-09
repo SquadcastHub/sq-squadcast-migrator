@@ -110,4 +110,3 @@ class SquadcastService(TerraformResource):
     def terraform_resource_type(self) -> str:
         """Return the Terraform resource type for Squadcast service"""
         return "squadcast_service"
-

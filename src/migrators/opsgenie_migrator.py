@@ -136,8 +136,13 @@ class OpsGenieTerraformMigrator:
 
                 team_members = detailed_team.get("members", [])
                 team_name = detailed_team.get("name", "Unknown")
-                
-                for member in tqdm(team_members, desc=f"Adding members to {team_name}", unit="member", leave=False):
+
+                for member in tqdm(
+                    team_members,
+                    desc=f"Adding members to {team_name}",
+                    unit="member",
+                    leave=False,
+                ):
                     og_user_id = member.get("user", {}).get("id")
                     if not og_user_id or og_user_id not in self.user_mapping:
                         logger.warning(

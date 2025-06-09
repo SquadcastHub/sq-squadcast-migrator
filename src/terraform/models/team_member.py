@@ -34,4 +34,3 @@ class SquadcastTeamMember(TerraformResource):
     def terraform_resource_type(self) -> str:
         """Return the Terraform resource type for Squadcast team member"""
         return "squadcast_team_member"
-

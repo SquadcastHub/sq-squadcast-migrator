@@ -4,7 +4,7 @@ import logging
 from config.config import settings
 from src.alerting_client import AlertingClient
 from src.schemas.squad import CreateSquadRequest, SquadMember
-from src.terraform.models import SquadcastTeam, SquadcastEscalationPolicy
+from src.terraform.models import SquadcastTeam
 
 
 logger = logging.getLogger(__name__)

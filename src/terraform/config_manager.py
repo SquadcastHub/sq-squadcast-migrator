@@ -5,6 +5,7 @@ from typing import Dict, List, Union
 from .models.base import TerraformResource
 from config.config import settings
 
+
 class TerraformConfigManager:
     """Manages Terraform configuration file generation from Pydantic models"""
 

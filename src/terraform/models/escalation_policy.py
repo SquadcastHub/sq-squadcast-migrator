@@ -28,4 +28,3 @@ class SquadcastEscalationPolicy(TerraformResource):
     def terraform_resource_type(self) -> str:
         """Return the Terraform resource type for Squadcast escalation policy"""
         return "squadcast_escalation_policy"
-
