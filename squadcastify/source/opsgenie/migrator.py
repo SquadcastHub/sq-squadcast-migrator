@@ -26,16 +26,14 @@ class OpsgenieTransformer(Transformer):
     that can be applied to create or update resources.
     """
 
-    def __init__(self, client: OpsGenieClient, exporter: TerraformExporter):
+    def __init__(self, exporter: TerraformExporter):
         """
         Initialize the OpsGenie Terraform Migrator.
 
         Args:
-            opsgenie_client: An initialized OpsGenie client
-            output_dir: Directory where Terraform files will be generated
-            provider_config: Configuration for the Squadcast provider
+            exporter (TerraformExporter): The exporter to use for generating Terraform configurations.
         """
-        self.client = client
+        self.client = OpsGenieClient()
         self.exporter = exporter
 
         self.user_mapping: Dict[str, SquadcastUser] = {}

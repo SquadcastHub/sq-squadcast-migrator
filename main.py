@@ -8,7 +8,6 @@ from pathlib import Path
 import click
 
 from config.config import settings
-from squadcastify.source.opsgenie.client import OpsGenieClient
 from squadcastify.source.opsgenie.migrator import OpsgenieTransformer
 from squadcastify.source.transformer import Transformer
 from squadcastify.logging.formatter import CustomFormatter
@@ -72,14 +71,10 @@ def main(squadcast_refresh_token: str, squadcast_region: str, source: str):
         },
     )
 
-    opsgenie_client = OpsGenieClient()
-
     try:
         logger.info(f"Initializing {settings.system} Terraform migrator")
 
-        transformer: Transformer = OpsgenieTransformer(
-            exporter=exporter, client=opsgenie_client
-        )
+        transformer: Transformer = OpsgenieTransformer(exporter=exporter)
         transformer.transform()
 
         # Export Terraform configurations
