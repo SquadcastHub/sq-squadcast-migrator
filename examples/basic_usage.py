@@ -14,8 +14,8 @@ def main():
     # Initialize config manager
     output_dir = Path("terraform_output")
     provider_config = {
-        "host": "https://api.squadcast.com",
-        "token": "Something",  # Use variable for sensitive data
+        "region": "${var.squadcast_region}",  # Use a variable for region (us or eu)
+        "refresh_token": "${var.squadcast_refresh_token}",  # Use a variable for sensitive data
     }
 
     manager = TerraformConfigManager(output_dir, provider_config)
