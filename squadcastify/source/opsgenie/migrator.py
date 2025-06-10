@@ -4,13 +4,13 @@ from typing import Dict, List
 
 from tqdm import tqdm
 
-from squadcastify.source.transformer import Transformer
-from squadcastify.source.opsgenie.client import OpsGenieClient
-from squadcastify.source.schema.migration import (
+from source.transformer import Transformer
+from source.opsgenie.client import OpsGenieClient
+from source.schema.migration import (
     SourceMigratorStats,
 )
-from squadcastify.terraform.exporter import TerraformExporter
-from squadcastify.terraform.models import (
+from terraform.exporter import TerraformExporter
+from terraform.models import (
     SquadcastTeam,
     SquadcastTeamMember,
     SquadcastUser,
@@ -26,14 +26,15 @@ class OpsgenieTransformer(Transformer):
     that can be applied to create or update resources.
     """
 
-    def __init__(self, exporter: TerraformExporter):
+    def __init__(self, client: OpsGenieClient, exporter: TerraformExporter):
         """
         Initialize the OpsGenie Terraform Migrator.
 
         Args:
+            client (OpsGenieClient): The OpsGenie client to use for API requests.
             exporter (TerraformExporter): The exporter to use for generating Terraform configurations.
         """
-        self.client = OpsGenieClient()
+        self.client = client
         self.exporter = exporter
 
         self.user_mapping: Dict[str, SquadcastUser] = {}
