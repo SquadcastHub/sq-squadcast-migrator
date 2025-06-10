@@ -6,12 +6,12 @@ from datetime import datetime
 from pathlib import Path
 import click
 
-from config import settings
-from source.opsgenie.client import OpsGenieClient
-from source.opsgenie.migrator import OpsgenieTransformer
-from source.transformer import Transformer
-from log_utils.formatter import CustomFormatter
-from terraform.exporter import TerraformExporter
+from .config import settings
+from .source.opsgenie.client import OpsGenieClient
+from .source.opsgenie.migrator import OpsgenieTransformer
+from .source.transformer import Transformer
+from .log_utils.formatter import CustomFormatter
+from .terraform.exporter import TerraformExporter
 
 
 @click.command()
@@ -25,7 +25,12 @@ from terraform.exporter import TerraformExporter
     help="Source system to migrate from (default: opsgenie)",
     default="opsgenie",
 )
-def main(squadcast_refresh_token: str, squadcast_region: str, source: str):
+@click.option(
+    "--state_dir",
+    help="Path to Terraform state directory",
+    default="/terraform_state",
+)
+def main(squadcast_refresh_token: str, squadcast_region: str, source: str, state_dir: str):
     setup_logger(settings.log_level)
 
     logger = logging.getLogger(__name__)
@@ -39,11 +44,15 @@ def main(squadcast_refresh_token: str, squadcast_region: str, source: str):
         settings.squadcast_region = squadcast_region
         logger.info(f"Using Squadcast region: {squadcast_region}")
 
+    if source:
+        settings.source = source
+        logger.info(f"Using source system: {source}")
 
+    logger.info(f"Using Terraform state directory: {state_dir}")
+
+    # Use the state_dir parameter as the output directory
     exporter: TerraformExporter = TerraformExporter(
-        output_dir=Path(
-            "terraform_output"
-        ),  ## TODO: Make this path configurable based on user input
+        output_dir=Path(state_dir),  # Use the provided state_dir
         provider_config={
             "region": "${var.squadcast_region}",  # Use a variable for region (us or eu)
             "refresh_token": "${var.squadcast_refresh_token}",  # Use a variable for sensitive data

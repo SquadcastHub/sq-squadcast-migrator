@@ -8,8 +8,11 @@ A tool to migrate data from alerting systems like OpsGenie, PagerDuty to Squadca
 - Generic `AlertingClient` interface for easy integration with new alerting systems
 - Dry-run mode to preview migration without making any changes
 - Command-line interface with clear options
+- Docker containerized CLI for easy deployment and use
 
 ## Installation
+
+### Local Installation
 
 1. Clone this repository:
 ```bash
@@ -28,6 +31,15 @@ uv venv
 source .venv/bin/activate
 uv pip install .
 ```
+
+### Docker CLI Installation
+
+1. Build the Docker image:
+```bash
+make build
+```
+
+This will create a Docker image named `squadcast-migrator:latest` that you can use as a CLI tool.
 
 ## Configuration
 
@@ -63,7 +75,9 @@ uv run main.py --dry-run --system pagerduty --pagerduty-api-token YOUR_TOKEN --s
 
 ## Usage
 
-### Migrating Users
+### Local Usage
+
+#### Migrating Users
 
 To migrate users to Squadcast:
 
@@ -77,13 +91,45 @@ To run in dry-run mode (no actual changes will be made):
 python main.py --dry-run migrate-users
 ```
 
-### Migrating Everything
+#### Migrating Everything
 
 To migrate all supported entities:
 
 ```bash
 python main.py --no-dry-run migrate-all
 ```
+
+### Docker CLI Usage
+
+You can use the Docker container as a CLI tool in the following ways:
+
+#### Using the shell script:
+
+```bash
+./squadcast-cli.sh --state_dir /path/to/tf/state_dir --dry --squadcast-region=eu --squadcast-refresh-token=YOUR_TOKEN
+```
+
+#### Using the Makefile:
+
+```bash
+make run STATE_DIR=/path/to/tf/state_dir PARAMS="--dry --squadcast-region=eu --squadcast-refresh-token=YOUR_TOKEN"
+```
+
+#### Direct Docker run:
+
+```bash
+docker run -it --rm \
+  -v "/path/to/tf/state_dir:/terraform_state" \
+  squadcast-migrator:latest \
+  --state_dir /terraform_state --dry --squadcast-region=eu --squadcast-refresh-token=YOUR_TOKEN
+```
+
+The Docker CLI supports the following parameters:
+- `--state_dir`: Path to Terraform state directory (required)
+- `--dry`: Run in dry mode without making actual changes
+- `--squadcast-region`: Squadcast region (us or eu)
+- `--squadcast-refresh-token`: Squadcast refresh token for authentication
+- `--source`: Source system to migrate from (default: opsgenie)
 
 ## Development
 

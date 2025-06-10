@@ -4,13 +4,13 @@ from typing import Dict, List
 
 from tqdm import tqdm
 
-from source.transformer import Transformer
-from source.opsgenie.client import OpsGenieClient
-from source.schema.migration import (
+from ..transformer import Transformer
+from .client import OpsGenieClient
+from ..schema.migration import (
     SourceMigratorStats,
 )
-from terraform.exporter import TerraformExporter
-from terraform.models import (
+from ...terraform.exporter import TerraformExporter
+from ...terraform.models import (
     SquadcastTeam,
     SquadcastTeamMember,
     SquadcastUser,

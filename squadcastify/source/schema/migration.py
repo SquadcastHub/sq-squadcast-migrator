@@ -3,7 +3,7 @@
 from typing import Optional, List
 from pydantic import Field
 
-from source.schema.base import BaseSchema
+from .base import BaseSchema
 
 
 class SourceMigratorStats(BaseSchema):
