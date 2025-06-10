@@ -4,23 +4,41 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
+import click
 
-from squadcastify.config import Settings
-from squadcastify.source.opsgenie.client import OpsGenieClient
-from squadcastify.source.opsgenie.migrator import OpsgenieTransformer
-from squadcastify.source.transformer import Transformer
-from squadcastify.logging.formatter import CustomFormatter
-from squadcastify.terraform.exporter import TerraformExporter
+from config import settings
+from source.opsgenie.client import OpsGenieClient
+from source.opsgenie.migrator import OpsgenieTransformer
+from source.transformer import Transformer
+from log_utils.formatter import CustomFormatter
+from terraform.exporter import TerraformExporter
 
 
-def main():
-    settings = Settings()
-
+@click.command()
+@click.option(
+    "--squadcast-refresh-token",
+    help="Squadcast refresh token to use for authentication",
+)
+@click.option("--squadcast-region", default="us", help="Squadcast region (us or eu)")
+@click.option(
+    "--source",
+    help="Source system to migrate from (default: opsgenie)",
+    default="opsgenie",
+)
+def main(squadcast_refresh_token: str, squadcast_region: str, source: str):
     setup_logger(settings.log_level)
 
     logger = logging.getLogger(__name__)
 
-    """Main entry point for the script."""
+    # Override settings with command line arguments if provided
+    if squadcast_refresh_token:
+        settings.squadcast_refresh_token = squadcast_refresh_token
+        logger.info("Using Squadcast refresh token from command line")
+
+    if squadcast_region:
+        settings.squadcast_region = squadcast_region
+        logger.info(f"Using Squadcast region: {squadcast_region}")
+
 
     exporter: TerraformExporter = TerraformExporter(
         output_dir=Path(
@@ -80,11 +98,11 @@ def main():
 
 
 def setup_logger(log_level: str = "INFO"):
-    os.makedirs(
-        "../logs", exist_ok=True
-    )  # TODO: have an absolute path for logs be provided instead of a relative one
-    log_filename = (
-        f"logs/terraform_migration_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+    # Create logs directory in the current directory
+    logs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+    os.makedirs(logs_dir, exist_ok=True)
+    log_filename = os.path.join(
+        logs_dir, f"terraform_migration_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
     )
     log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     custom_formatter = CustomFormatter(log_format)

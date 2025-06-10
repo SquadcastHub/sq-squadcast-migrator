@@ -4,13 +4,13 @@ from typing import Dict, List
 
 from tqdm import tqdm
 
-from squadcastify.source.transformer import Transformer
-from squadcastify.source.opsgenie.client import OpsGenieClient
-from squadcastify.source.schema.migration import (
+from source.transformer import Transformer
+from source.opsgenie.client import OpsGenieClient
+from source.schema.migration import (
     SourceMigratorStats,
 )
-from squadcastify.terraform.exporter import TerraformExporter
-from squadcastify.terraform.models import (
+from terraform.exporter import TerraformExporter
+from terraform.models import (
     SquadcastTeam,
     SquadcastTeamMember,
     SquadcastUser,
@@ -31,9 +31,8 @@ class OpsgenieTransformer(Transformer):
         Initialize the OpsGenie Terraform Migrator.
 
         Args:
-            opsgenie_client: An initialized OpsGenie client
-            output_dir: Directory where Terraform files will be generated
-            provider_config: Configuration for the Squadcast provider
+            client (OpsGenieClient): The OpsGenie client to use for API requests.
+            exporter (TerraformExporter): The exporter to use for generating Terraform configurations.
         """
         self.client = client
         self.exporter = exporter
@@ -121,7 +120,7 @@ class OpsgenieTransformer(Transformer):
                     description = f"Team {detailed_team.get('name', 'Unknown')}"  # Since description is required by Squadcast Terraform provider
 
                 team = SquadcastTeam(
-                    display_name=detailed_team.get("name", ""),
+                    name=detailed_team.get("name", ""),
                     description=description,
                 )
 

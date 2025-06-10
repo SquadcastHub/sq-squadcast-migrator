@@ -22,9 +22,7 @@ def main():
     manager = TerraformExporter(output_dir, provider_config)
 
     # Create a team - terraform_name will be "engineering_team"
-    team = SquadcastTeam(
-        display_name="Engineering Team", description="Core engineering team"
-    )
+    team = SquadcastTeam(name="Engineering Team", description="Core engineering team")
     manager.add_resource(team)
 
     # Create a user - terraform_name will be "jane_smith"
@@ -39,14 +37,14 @@ def main():
 
     # Create an escalation policy - terraform_name will be "default_escalation_policy"
     escalation_policy = SquadcastEscalationPolicy(
-        display_name="Default Escalation Policy",
+        name="Default Escalation Policy",
         team_id=team.terraform_id_reference,  # Reference the team
     )
     manager.add_resource(escalation_policy)
 
     # Create a service - terraform_name will be "api_service"
     service = SquadcastService(
-        display_name="API Service",
+        name="API Service",
         team_id=team.terraform_id_reference,  # Use ID reference
         escalation_policy_id=escalation_policy.terraform_id_reference,  # Use ID reference
         email_prefix="api-alerts",

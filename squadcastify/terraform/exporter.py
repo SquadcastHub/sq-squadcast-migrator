@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Dict, List, Union
 
-from squadcastify.config import settings
+from config import settings
 from .models.base import TerraformResource
 
 

@@ -18,3 +18,5 @@ class Settings(BaseSettings):
     squadcast_region: str = os.getenv("SQUADCAST_REGION", "us")
 
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
+
+settings = Settings()

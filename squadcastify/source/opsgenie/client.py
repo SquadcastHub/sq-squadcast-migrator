@@ -3,9 +3,9 @@ from typing import Any, Dict, List, Optional, Union
 
 import requests
 
-from squadcastify.source.schema.squad import CreateSquadRequest, SquadMember
-from squadcastify.source.alerting_client import AlertingClient
-from squadcastify.terraform.models import SquadcastTeam
+from source.schema.squad import CreateSquadRequest, SquadMember
+from source.alerting_client import AlertingClient
+from terraform.models import SquadcastTeam
 
 logger = logging.getLogger(__name__)
 

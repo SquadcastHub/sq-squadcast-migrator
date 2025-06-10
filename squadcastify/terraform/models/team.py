@@ -12,7 +12,7 @@ class SquadcastTeam(TerraformResource):
     Team names must be unique within an organization.
 
     Examples:
-        >>> team = SquadcastTeam(display_name="Engineering Team")
+        >>> team = SquadcastTeam(name="Engineering Team")
         >>> team.terraform_name
         'engineering_team'
     """
