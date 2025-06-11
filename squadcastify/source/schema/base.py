@@ -1,10 +1,10 @@
-"""Base models for the schemas."""
+"""Base models for the schema."""
 
 from pydantic import BaseModel
 
 
 class BaseSchema(BaseModel):
-    """Base class for all schemas."""
+    """Base class for all schema."""
 
     class Config:
         """Pydantic config."""

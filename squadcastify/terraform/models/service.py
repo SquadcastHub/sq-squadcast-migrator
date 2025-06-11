@@ -31,7 +31,7 @@ class SquadcastService(TerraformResource):
     products, or teams for which incidents are created.
     """
 
-    display_name: str = Field(..., description="Display name of the service")
+    name: str = Field(..., description="Name of the service")
     team_id: str = Field(..., description="ID of the team this service belongs to")
     escalation_policy_id: str = Field(
         ..., description="ID of the escalation policy to use for this service"
@@ -52,8 +52,8 @@ class SquadcastService(TerraformResource):
             ].terraform_id_reference
             del data["escalation_policy"]
 
-        if "terraform_name" not in data and "display_name" in data:
-            data["terraform_name"] = generate_terraform_name(data["display_name"])
+        if "terraform_name" not in data and "name" in data:
+            data["terraform_name"] = generate_terraform_name(data["name"])
 
         super().__init__(**data)
 
@@ -102,18 +102,11 @@ class SquadcastService(TerraformResource):
 
     def __init__(self, **data):
         """Initialize a service with auto-generated terraform_name if not provided."""
-        if "terraform_name" not in data and "display_name" in data:
-            data["terraform_name"] = generate_terraform_name(data["display_name"])
+        if "terraform_name" not in data and "name" in data:
+            data["terraform_name"] = generate_terraform_name(data["name"])
         super().__init__(**data)
 
     @property
     def terraform_resource_type(self) -> str:
         """Return the Terraform resource type for Squadcast service"""
         return "squadcast_service"
-
-    def model_dump(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
-        """Override model_dump to convert display_name to name"""
-        data = super(SquadcastService, self).model_dump(*args, **kwargs)
-        if "display_name" in data:
-            data["name"] = data.pop("display_name")
-        return dict(data)  # Ensure we always return a dict

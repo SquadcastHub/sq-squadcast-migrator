@@ -58,7 +58,7 @@ class ServiceMaintainer(BaseModel):
 
 ```python
 class SquadcastService(SquadcastResource):
-    display_name: str
+    name: str
     team_id: str = Field(..., description="ID of the team")
     escalation_policy_id: str = Field(..., description="ID of the escalation policy")
     maintainer: ServiceMaintainer
@@ -94,19 +94,19 @@ The following example demonstrates how complex nested structures and cross-resou
 ```python
 team = SquadcastTeam(
     terraform_name="engineering",
-    display_name="Engineering Team",
+    name="Engineering Team",
     description="Core engineering team"
 )
 
 escalation_policy = SquadcastEscalationPolicy(
     terraform_name="default_escalation_policy",
-    display_name="Default Escalation Policy",
+    name="Default Escalation Policy",
     team_id=team.terraform_id_reference  # Reference the team
 )
 
 service = SquadcastService(
     terraform_name="api_service",
-    display_name="API Service",
+    name="API Service",
     team_id=team.terraform_id_reference,  # Reference to team
     escalation_policy_id=escalation_policy.terraform_id_reference,  # Reference to escalation policy
     email_prefix="api-alerts",
@@ -227,19 +227,19 @@ The following example demonstrates how nested resolution works with the generate
 ```python
 team = SquadcastTeam(
     terraform_name="engineering",
-    display_name="Engineering Team",
+    name="Engineering Team",
     description="Core engineering team"
 )
 
 escalation_policy = SquadcastEscalationPolicy(
     terraform_name="default_escalation_policy",
-    display_name="Default Escalation Policy",
+    name="Default Escalation Policy",
     team_id=team.terraform_id_reference  # Reference the team
 )
 
 service = SquadcastService(
     terraform_name="api_service",
-    display_name="API Service",
+    name="API Service",
     team_id=team.terraform_id_reference,  # Reference to team
     escalation_policy_id=escalation_policy.terraform_id_reference,  # Reference to escalation policy
     email_prefix="api-alerts",

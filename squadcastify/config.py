@@ -6,7 +6,7 @@ load_dotenv()
 
 
 class Settings(BaseSettings):
-    system: str = os.getenv("SYSTEM", "opsgenie")
+    source: str = os.getenv("SOURCE", "opsgenie")
 
     pagerduty_api_token: str = os.getenv("PAGERDUTY_API_TOKEN", "")
     pagerduty_api_url: str = os.getenv("PAGERDUTY_API_URL", "https://api.pagerduty.com")
@@ -17,8 +17,6 @@ class Settings(BaseSettings):
     squadcast_refresh_token: str = os.getenv("SQUADCAST_REFRESH_TOKEN", "")
     squadcast_region: str = os.getenv("SQUADCAST_REGION", "us")
 
-    dry_run: bool = os.getenv("DRY_RUN", "True").lower() == "true"
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
-
 
 settings = Settings()

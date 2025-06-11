@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List, Any
-from src.schemas.user import CreateUserRequest
-from src.schemas.team import CreateTeamRequest
-from src.schemas.squad import CreateSquadRequest
+from .schema.team import CreateTeamRequest
+from .schema.squad import CreateSquadRequest
 from typing import Union
 
 

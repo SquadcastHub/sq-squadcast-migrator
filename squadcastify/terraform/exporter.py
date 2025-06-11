@@ -1,11 +1,11 @@
-import os
 from pathlib import Path
 from typing import Dict, List, Union
 
+from config import settings
 from .models.base import TerraformResource
-from config.config import settings
 
-class TerraformConfigManager:
+
+class TerraformExporter:
     """Manages Terraform configuration file generation from Pydantic models"""
 
     def __init__(self, output_dir: Union[str, Path], provider_config: Dict[str, str]):
@@ -17,7 +17,7 @@ class TerraformConfigManager:
         """
         self.output_dir = Path(output_dir)
         self.provider_config = provider_config
-        self.resources: Dict[str, List[TerraformResource]] = {}
+        self.__resources: Dict[str, List[TerraformResource]] = {}
 
     def add_resource(self, resource: TerraformResource):
         """Add a resource to be managed.
@@ -25,12 +25,12 @@ class TerraformConfigManager:
         Resources are grouped by type for organized file generation.
         """
         resource_type = resource.terraform_resource_type
-        if resource_type not in self.resources:
-            self.resources[resource_type] = []
-        self.resources[resource_type].append(resource)
+        if resource_type not in self.__resources:
+            self.__resources[resource_type] = []
+        self.__resources[resource_type].append(resource)
 
-    def generate_provider_file(self):
-        """Generate the provider configuration file"""
+    def _generate_provider_file(self):
+        """Generate the provider configuration file (internal method)"""
         provider_path = self.output_dir / "provider.tf"
 
         # Convert provider config to HCL
@@ -54,8 +54,8 @@ class TerraformConfigManager:
 
         provider_path.write_text("\n".join(content))
 
-    def generate_root_main_tf(self):
-        """Generate a root main.tf file that contains all resource definitions"""
+    def _generate_root_main_tf(self):
+        """Generate a root main.tf file that contains all resource definitions (internal method)"""
         main_path = self.output_dir / "main.tf"
 
         # Directly write all resources to the main.tf file
@@ -66,7 +66,7 @@ class TerraformConfigManager:
         content.append("")
 
         # Add all resources grouped by resource type
-        for resource_type, resources in self.resources.items():
+        for resource_type, resources in self.__resources.items():
             # Add a comment header for the resource type
             content.append(
                 f"# {resource_type.replace('squadcast_', '').upper()} RESOURCES"
@@ -82,8 +82,8 @@ class TerraformConfigManager:
         if len(content) > 2:  # More than just the header
             main_path.write_text("\n".join(content))
 
-    def generate_root_variables_tf(self):
-        """Generate a root variables.tf file for sensitive data"""
+    def _generate_root_variables_tf(self):
+        """Generate a root variables.tf file for sensitive data (internal method)"""
         variables_path = self.output_dir / "variables.tf"
 
         content = [
@@ -118,8 +118,8 @@ class TerraformConfigManager:
             ]
             tfvars_file.write_text("\n".join(tfvars_content))
 
-    def generate_variables_file(self, resource_type: str, variables: Dict[str, str]):
-        """Add variables to the root variables.tf file"""
+    def _generate_variables_file(self, resource_type: str, variables: Dict[str, str]):
+        """Add variables to the root variables.tf file (internal method)"""
         variables_tf = self.output_dir / "variables.tf"
 
         # Read existing content if the file exists
@@ -147,19 +147,19 @@ class TerraformConfigManager:
             else:
                 variables_tf.write_text("\n".join(content).strip())
 
-    def generate_resource_files(self):
-        """Generate Terraform configuration files for all resources"""
+    def _generate_resource_files(self):
+        """Generate Terraform configuration files for all resources (internal method)"""
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.generate_provider_file()
-        self.generate_root_variables_tf()
-        self.generate_root_main_tf()
+        self._generate_provider_file()
+        self._generate_root_variables_tf()
+        self._generate_root_main_tf()
 
         # Create a single outputs.tf file for all resources
         outputs_tf = self.output_dir / "outputs.tf"
         output_content = []
 
         # Generate outputs for all resource types
-        for resource_type, resources in self.resources.items():
+        for resource_type, resources in self.__resources.items():
             print(f"Processing resource type: {resource_type}")
 
             # Create a logical output name like "user_ids", "team_ids", etc.
@@ -178,15 +178,16 @@ class TerraformConfigManager:
         if output_content:
             outputs_tf.write_text("\n".join(output_content).strip())
 
-    def export_terraform_config(self):
+    def export(self):
         """Export all resources as Terraform configuration files"""
         try:
-            self.generate_resource_files()
+            self._generate_resource_files()
             return {
                 "status": "success",
                 "output_dir": str(self.output_dir),
                 "resource_counts": {
-                    rtype: len(resources) for rtype, resources in self.resources.items()
+                    rtype: len(resources)
+                    for rtype, resources in self.__resources.items()
                 },
             }
         except Exception as e:

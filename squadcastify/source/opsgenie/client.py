@@ -1,19 +1,24 @@
-import requests
-from typing import Dict, List, Any, Optional, Union
 import logging
-from config.config import settings
-from src.alerting_client import AlertingClient
-from src.schemas.squad import CreateSquadRequest, SquadMember
-from src.terraform.models import SquadcastTeam, SquadcastEscalationPolicy
+from typing import Any, Dict, List, Optional, Union
 
+import requests
+
+from source.schema.squad import CreateSquadRequest, SquadMember
+from source.alerting_client import AlertingClient
+from terraform.models import SquadcastTeam
 
 logger = logging.getLogger(__name__)
+
+
+def get_services() -> List[Dict[str, Any]]:
+    logger.warning("Services feature is not supported in OpsGenie")
+    return []
 
 
 class OpsGenieClient(AlertingClient):
     """Client for the OpsGenie API."""
 
-    def __init__(self, api_key: Optional[str] = None, api_url: Optional[str] = None):
+    def __init__(self, api_key: Optional[str], api_url: Optional[str]):
         """
         Initialize OpsGenie client.
 
@@ -21,23 +26,27 @@ class OpsGenieClient(AlertingClient):
             api_key: OpsGenie API key. If not provided, will use from settings.
             api_url: OpsGenie API URL. If not provided, will use from settings.
         """
-        self.api_key = api_key or settings.opsgenie_api_key
-        self.api_url = api_url or settings.opsgenie_api_url
-        self.headers = {
-            "Authorization": f"GenieKey {self.api_key}",
+        self.__api_key = api_key
+        self.__api_url = api_url
+        self.__headers = {
+            "Authorization": f"GenieKey {self.__api_key}",
             "Content-Type": "application/json",
         }
 
-        if not self.api_key:
+        if not self.__api_key:
             logger.error("OpsGenie API key not provided")
             raise ValueError("OpsGenie API key is required")
 
     def _make_request(
         self, method: str, endpoint: str, params: Dict = None, json_data: Dict = None
     ) -> Dict:
-        url = f"{self.api_url}/{endpoint}"
+        url = f"{self.__api_url}/{endpoint}"
         response = requests.request(
-            method=method, url=url, headers=self.headers, params=params, json=json_data
+            method=method,
+            url=url,
+            headers=self.__headers,
+            params=params,
+            json=json_data,
         )
 
         try:
@@ -128,10 +137,6 @@ class OpsGenieClient(AlertingClient):
 
     def get_schedules(self) -> List[Dict[str, Any]]:
         logger.info("Fetching schedules from OpsGenie")
-        return []
-
-    def get_services(self) -> List[Dict[str, Any]]:
-        logger.warning("Services feature is not supported in OpsGenie")
         return []
 
     # Add more methods as needed

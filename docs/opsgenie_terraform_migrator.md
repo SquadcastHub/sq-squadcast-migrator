@@ -49,16 +49,11 @@ The generated Terraform configurations are organized as follows:
 
 ```
 terraform_output/
-├── main.tf            # Main tf file with all modules
+├── main.tf            # Main tf file with all resources
 ├── provider.tf        # Squadcast provider configuration
 ├── variables.tf       # Variable declarations
+├── outputs.tf         # Output
 ├── terraform.tfvars.example  # Example variables file
-├── user/              # User resources
-│   └── main.tf
-├── team/              # Team resources
-│   └── main.tf
-└── escalation_policy/ # Escalation policy resources
-    └── main.tf
 ```
 
 ## Applying Terraform Configurations

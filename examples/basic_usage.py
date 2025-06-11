@@ -1,13 +1,14 @@
 from pathlib import Path
-from src.terraform.models import (
-    SquadcastTeam,
-    SquadcastUser,
-    SquadcastService,
-    SquadcastEscalationPolicy,
+
+from squadcastify.terraform.exporter import TerraformExporter
+from squadcastify.terraform.models import (
     ServiceMaintainer,
     ServiceTag,
+    SquadcastEscalationPolicy,
+    SquadcastService,
+    SquadcastTeam,
+    SquadcastUser,
 )
-from src.terraform.config_manager import TerraformConfigManager
 
 
 def main():
@@ -18,12 +19,10 @@ def main():
         "refresh_token": "${var.squadcast_refresh_token}",  # Use a variable for sensitive data
     }
 
-    manager = TerraformConfigManager(output_dir, provider_config)
+    manager = TerraformExporter(output_dir, provider_config)
 
     # Create a team - terraform_name will be "engineering_team"
-    team = SquadcastTeam(
-        display_name="Engineering Team", description="Core engineering team"
-    )
+    team = SquadcastTeam(name="Engineering Team", description="Core engineering team")
     manager.add_resource(team)
 
     # Create a user - terraform_name will be "jane_smith"
@@ -38,14 +37,14 @@ def main():
 
     # Create an escalation policy - terraform_name will be "default_escalation_policy"
     escalation_policy = SquadcastEscalationPolicy(
-        display_name="Default Escalation Policy",
+        name="Default Escalation Policy",
         team_id=team.terraform_id_reference,  # Reference the team
     )
     manager.add_resource(escalation_policy)
 
     # Create a service - terraform_name will be "api_service"
     service = SquadcastService(
-        display_name="API Service",
+        name="API Service",
         team_id=team.terraform_id_reference,  # Use ID reference
         escalation_policy_id=escalation_policy.terraform_id_reference,  # Use ID reference
         email_prefix="api-alerts",
@@ -60,7 +59,7 @@ def main():
     manager.add_resource(service)
 
     # Generate Terraform configuration files
-    result = manager.export_terraform_config()
+    result = manager.export()
 
     if result["status"] == "success":
         print(f"Generated Terraform configuration in: {result['output_dir']}")
