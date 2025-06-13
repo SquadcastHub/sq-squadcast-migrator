@@ -2,7 +2,6 @@ import os
 from pydantic_settings import BaseSettings
 
 
-
 class Settings(BaseSettings):
     source: str = os.getenv("SOURCE", "opsgenie")
 
@@ -18,8 +17,3 @@ class Settings(BaseSettings):
     squadcast_region: str = os.getenv("SQUADCAST_REGION", "us")
 
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
-
-    class Config:
-        env_file = ".env"
-
-settings = Settings()

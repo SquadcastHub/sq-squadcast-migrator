@@ -5,14 +5,16 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from .config import settings
+from .config import Settings
 from .source.opsgenie.client import OpsGenieClient
 from .source.opsgenie.migrator import OpsgenieTransformer
 from .source.transformer import Transformer
 from .log_utils.formatter import CustomFormatter
 from .terraform.exporter import TerraformExporter
 
+
 def main():
+    settings = Settings()
     setup_logger(settings.log_level)
 
     logger = logging.getLogger(__name__)

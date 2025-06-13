@@ -1,191 +1,96 @@
-#!/usr/bin/env python3
+"""OpsGenie to Squadcast migrator."""
+
 import logging
-from typing import Dict, List
+from dataclasses import dataclass, field
 
 from tqdm import tqdm
 
+from .context import MigrationContext
+
 from ..transformer import Transformer
-from .client import OpsGenieClient
-from ..schema.migration import (
-    SourceMigratorStats,
-)
+from .client.api import OpsgenieAPIClient
 from ...terraform.exporter import TerraformExporter
-from ...terraform.models import (
-    SquadcastTeam,
-    SquadcastTeamMember,
-    SquadcastUser,
-)
+from ...terraform.models import SquadcastTeam, SquadcastTeamMember, SquadcastUser
 
 logger = logging.getLogger(__name__)
 
 
-class OpsgenieTransformer(Transformer):
-    """
-    Migrates data from OpsGenie to Terraform configurations using the Terraform Config Manager.
-    Instead of directly creating entities in Squadcast, this creates Terraform configurations
-    that can be applied to create or update resources.
-    """
+@dataclass
+class OpsGenieTransformer(Transformer):
+    """Migrates data from OpsGenie to Terraform configurations."""
 
-    def __init__(self, client: OpsGenieClient, exporter: TerraformExporter):
-        """
-        Initialize the OpsGenie Terraform Migrator.
+    client: OpsgenieAPIClient
+    exporter: TerraformExporter
+    context: MigrationContext = field(default_factory=MigrationContext)
 
-        Args:
-            client (OpsGenieClient): The OpsGenie client to use for API requests.
-            exporter (TerraformExporter): The exporter to use for generating Terraform configurations.
-        """
-        self.client = client
-        self.exporter = exporter
-
-        self.user_mapping: Dict[str, SquadcastUser] = {}
-        self.team_mapping: Dict[str, SquadcastTeam] = {}
-
-    def _migrate_users(self) -> SourceMigratorStats:
-        """
-        Migrate users from OpsGenie to Terraform configurations.
-
-        Returns:
-            Dict with migration statistics
-        """
+    def _migrate_users(self) -> None:
+        """Migrate users from OpsGenie to Terraform configurations."""
         logger.info("Starting OpsGenie user migration to Terraform")
 
-        # Get all users from OpsGenie
-        opsgenie_users = self.client.get_users()
+        opsgenie_users = self.client.users.list_users()
         logger.info(f"Found {len(opsgenie_users)} users in OpsGenie")
 
-        success_count = 0
-        failure_count = 0
-        errors: List[str] = []
-
-        for user_data in tqdm(opsgenie_users, desc="Migrating users", unit="user"):
+        for user in tqdm(opsgenie_users, desc="Migrating users", unit="user"):
             try:
-                full_name: str = user_data.get("fullName", "")
-                name_parts = full_name.split(" ", 1)
-
-                user = SquadcastUser(
-                    first_name=name_parts[0] if len(name_parts) > 0 else "",
+                name_parts = user.full_name.split(" ", 1)
+                squadcast_user = SquadcastUser(
+                    first_name=name_parts[0] if name_parts else "",
                     last_name=name_parts[1] if len(name_parts) > 1 else "",
-                    email=user_data.get("username"),
+                    email=user.username,
                     role="user",
                 )
-
-                self.exporter.add_resource(user)
-
-                self.user_mapping[user_data.get("id")] = user
-
-                logger.info(f"Successfully migrated user: {user.email}")
-                success_count += 1
+                self.exporter.add_resource(squadcast_user)
+                self.context.add_user(user.id, squadcast_user)
+                logger.info(f"Successfully migrated user: {user.username}")
 
             except Exception as e:
-                logger.error(
-                    f"Failed to migrate user {user_data.get('username')}: {str(e)}"
-                )
-                errors.append(str(e))
-                failure_count += 1
+                logger.error(f"Failed to migrate user {user.username}: {str(e)}")
 
-        return SourceMigratorStats(
-            total_count=len(opsgenie_users),
-            success_count=success_count,
-            failure_count=failure_count,
-            errors=errors,
-        )
-
-    def _migrate_teams(self) -> SourceMigratorStats:
-        """
-        Migrate teams from OpsGenie to Terraform configurations.
-
-        Returns:
-            Dict with migration statistics
-        """
+    def _migrate_teams(self) -> None:
+        """Migrate teams from OpsGenie to Terraform configurations."""
         logger.info("Starting OpsGenie team migration to Terraform")
 
-        opsgenie_teams = self.client.get_teams()
+        opsgenie_teams = self.client.teams.list_teams()
         logger.info(f"Found {len(opsgenie_teams)} teams in OpsGenie")
 
-        success_count = 0
-        failure_count = 0
-        errors: List[str] = []
-
-        for team_data in tqdm(opsgenie_teams, desc="Migrating teams", unit="team"):
+        for team in tqdm(opsgenie_teams, desc="Migrating teams", unit="team"):
             try:
-                team_id: str = team_data.get("id")
-                if not team_id:
-                    logger.warning(f"Team without ID found, skipping: {team_data}")
-                    continue
+                description = team.description or f"Team {team.name}"
+                squadcast_team = SquadcastTeam(name=team.name, description=description)
+                self.exporter.add_resource(squadcast_team)
+                self.context.add_team(team.id, squadcast_team)
 
-                detailed_team = self.client.get_team_details(team_id)
-
-                description = detailed_team.get("description")
-                if not description or description.strip() == "":
-                    description = f"Team {detailed_team.get('name', 'Unknown')}"  # Since description is required by Squadcast Terraform provider
-
-                team = SquadcastTeam(
-                    name=detailed_team.get("name", ""),
-                    description=description,
-                )
-
-                self.exporter.add_resource(team)
-
-                team_members = detailed_team.get("members", [])
-                team_name = detailed_team.get("name", "Unknown")
-
-                for member in tqdm(
-                    team_members,
-                    desc=f"Adding members to {team_name}",
-                    unit="member",
-                    leave=False,
-                ):
-                    og_user_id = member.get("user", {}).get("id")
-                    if not og_user_id or og_user_id not in self.user_mapping:
+                # Add team members
+                for member in team.members:
+                    if not self.context.has_user(member.id):
                         logger.warning(
-                            f"User {member.get('user', {}).get('username')} not found in migration map, skipping"
+                            f"User {member.username} not found in migration map, skipping"
                         )
                         continue
+
+                    user = self.context.get_user(member.id)
                     self.exporter.add_resource(
                         SquadcastTeamMember(
-                            team_id=team.terraform_id_reference,
-                            user_id=self.user_mapping[
-                                og_user_id
-                            ].terraform_id_reference,
+                            team_id=squadcast_team.terraform_id_reference,
+                            user_id=user.terraform_id_reference,
                         )
                     )
 
-                self.team_mapping[team_id] = team
-
-                logger.info(f"Successfully migrated team: {detailed_team.get('name')}")
-                success_count += 1
+                logger.info(f"Successfully migrated team: {team.name}")
 
             except Exception as e:
-                logger.error(
-                    f"Failed to migrate team {team_data.get('name', 'Unknown')}: {str(e)}"
-                )
-                failure_count += 1
-                errors.append(str(e))
+                logger.error(f"Failed to migrate team {team.name}: {str(e)}")
 
-        return SourceMigratorStats(
-            total_count=len(opsgenie_teams),
-            success_count=success_count,
-            failure_count=failure_count,
-            errors=errors,
-        )
+    def transform(self) -> None:
+        """Transform OpsGenie resources to Terraform configurations."""
+        logger.info("🚀 Starting migration from OpsGenie to Terraform")
 
-    def transform(self):
-        # Migrate users
-        logger.info("🚀 Starting user migration from Opsgenie to Terraform")
-        user_result = self._migrate_users()
-        logger.info(
-            f"📊 User migration summary → "
-            f"Total: {user_result.total_count}, "
-            f"✅ Success: {user_result.success_count}, "
-            f"❌ Failed: {user_result.failure_count}"
-        )
+        # First migrate users so we have them available for team membership
+        logger.info("Migrating users...")
+        self._migrate_users()
 
-        # Migrate teams
-        logger.info("🚀 Starting team migration from Opsgenie to Terraform")
-        team_result = self._migrate_teams()
-        logger.info(
-            f"📊 Team migration summary → "
-            f"Total: {team_result.total_count}, "
-            f"✅ Success: {team_result.success_count}, "
-            f"❌ Failed: {team_result.failure_count}"
-        )
+        # Then migrate teams and their members
+        logger.info("Migrating teams...")
+        self._migrate_teams()
+
+        logger.info("✅ Migration completed")
