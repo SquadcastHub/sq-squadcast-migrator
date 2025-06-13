@@ -50,86 +50,56 @@ You can configure the migrator in two ways:
 Create a `.env` file in the root directory with the following content:
 
 ```
-SYSTEM=opsgenie
+# Source Configuration. Can be either 'opsgenie' or 'pagerduty'
+SOURCE=opsgenie
+
+STATE_DIR=/terraform_state
+
+# PagerDuty API Configuration
 PAGERDUTY_API_TOKEN=your_pagerduty_token_here
 PAGERDUTY_API_URL=https://api.pagerduty.com
-OPSGENIE_API_KEY=your_opsgenie_api_key
+
+# OpsGenie API Configuration
+OPSGENIE_API_KEY=your_opsgenie_api_key_here
 OPSGENIE_API_URL=https://api.opsgenie.com/v2
-SQUADCAST_REFRESH_TOKEN=your_squadcast_refresh_token
-SQUADCAST_API_URL=https://api.squadcast.com
-SQUADCAST_AUTH_URL=https://auth.squadcast.com/oauth-access-token
-DRY_RUN=False
+
+# Squadcast API Configuration
+SQUADCAST_REFRESH_TOKEN=your_squadcast_refresh_token_here
+SQUADCAST_REGION=us # or 'eu' depending on your region
+
+# Migration Settings
 LOG_LEVEL=INFO
-```
-
-### Command Line Arguments
-
-Alternatively, you can provide configuration via command-line arguments:
-
-```bash
-```bash
-uv run main.py --dry-run --system opsgenie --opsgenie-api-key YOUR_KEY --squadcast-refresh-token YOUR_TOKEN migrate-users
-uv run main.py --dry-run --system pagerduty --pagerduty-api-token YOUR_TOKEN --squadcast-refresh-token YOUR_TOKEN migrate-users
-```
 ```
 
 ## Usage
 
 ### Local Usage
 
-#### Migrating Users
-
-To migrate users to Squadcast:
-
-```bash
-python main.py --no-dry-run migrate-users
-```
-
-To run in dry-run mode (no actual changes will be made):
-
-```bash
-python main.py --dry-run migrate-users
-```
-
 #### Migrating Everything
 
 To migrate all supported entities:
 
 ```bash
-python main.py --no-dry-run migrate-all
+uv run -m squadcastify.main
 ```
 
 ### Docker CLI Usage
 
 You can use the Docker container as a CLI tool in the following ways:
 
-#### Using the shell script:
-
-```bash
-./squadcast-cli.sh --state_dir /path/to/tf/state_dir --dry --squadcast-region=eu --squadcast-refresh-token=YOUR_TOKEN
-```
-
 #### Using the Makefile:
 
 ```bash
-make run STATE_DIR=/path/to/tf/state_dir PARAMS="--dry --squadcast-region=eu --squadcast-refresh-token=YOUR_TOKEN"
+make build
+make run
 ```
 
 #### Direct Docker run:
 
 ```bash
-docker run -it --rm \
-  -v "/path/to/tf/state_dir:/terraform_state" \
-  squadcast-migrator:latest \
-  --state_dir /terraform_state --dry --squadcast-region=eu --squadcast-refresh-token=YOUR_TOKEN
+docker run -it \
+  squadcast-migrator:latest
 ```
-
-The Docker CLI supports the following parameters:
-- `--state_dir`: Path to Terraform state directory (required)
-- `--dry`: Run in dry mode without making actual changes
-- `--squadcast-region`: Squadcast region (us or eu)
-- `--squadcast-refresh-token`: Squadcast refresh token for authentication
-- `--source`: Source system to migrate from (default: opsgenie)
 
 ## Development
 
@@ -137,35 +107,35 @@ The Docker CLI supports the following parameters:
 
 ```
 squadcast-migrator/
-├── config/                 # Configuration management
+├── squadcastify
 │   ├── __init__.py
-│   └── config.py
-├── src/
-│   ├── __init__.py
-│   ├── opsgenie/           # OpsGenie API client
+│   ├── config.py
+│   ├── log_utils
 │   │   ├── __init__.py
-│   │   └── client.py
-│   ├── pagerduty/           # Pagerduty API client
+│   │   └── formatter.py
+│   ├── main.py
+│   ├── source
 │   │   ├── __init__.py
-│   │   └── client.py
-│   ├── squadcast/          # Squadcast API client
-│   │   ├── __init__.py
-│   │   └── client.py
-│   ├── migrators/          # Migration logic
-│   │   ├── __init__.py
-│   │   └── user_migrator.py
-│   └── logging/          
-│       ├── __init__.py
-│       └── formatter.py
+│   │   ├── alerting_client.py
+│   │   ├── opsgenie
+│   │   │   ├── __init__.py
+│   │   │   ├── client.py
+│   │   │   └── migrator.py
+│   │   ├── pagerduty
+│   │   │   └── __init__.py
+│   │   ├── schema
+│   │   │   ├── __init__.py
+│   │   │   ├── base.py
+│   │   │   ├── migration.py
+│   │   │   ├── squad.py
+│   │   │   ├── team.py
+│   │   │   └── user.py
+│   │   └── transformer.py
+├── DOCKER_CLI_GUIDE.md
+├── Dockerfile
+├── tests
+└── uv.lock
 ```
-
-### Adding New Migration Types
-
-To add a new migration type:
-
-1. Create a new migrator class in the `src/migrators` directory
-2. Implement the necessary client methods in `src/<alerting_system>/client.py` and `src/squadcast/client.py`
-3. Add a new command to the CLI in `main.py`
 
 ### Managing Dependencies
 
