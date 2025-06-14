@@ -6,10 +6,10 @@ from datetime import datetime
 from pathlib import Path
 
 from .config import Settings
-from .source.opsgenie.client import OpsGenieClient
-from .source.opsgenie.migrator import OpsgenieTransformer
-from .source.transformer import Transformer
-from .log_utils.formatter import CustomFormatter
+from .source.opsgenie.client import OpsgenieAPIClient
+from .source.opsgenie.migrator import OpsGenieTransformer
+from .terraform.transformer import Transformer
+from .logutil.formatter import CustomFormatter
 from .terraform.exporter import TerraformExporter
 
 
@@ -31,14 +31,15 @@ def main():
     try:
         logger.info(f"Initializing {settings.source} Terraform migrator")
 
-        transformer: Transformer = OpsgenieTransformer(
-            client=OpsGenieClient(
+        transformer: Transformer = OpsGenieTransformer(
+            client=OpsgenieAPIClient(
                 api_key=settings.opsgenie_api_key,
                 api_url=settings.opsgenie_api_url,
             ),
-            exporter=exporter,
         )
-        transformer.transform()
+
+        resources = transformer.transform()
+        exporter.add_resources(resources)
 
         # Export Terraform configurations
         logger.info("📄 Exporting Terraform configurations")

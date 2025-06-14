@@ -3,6 +3,7 @@ from .team_member import SquadcastTeamMember
 from .user import SquadcastUser, UserRole, UserAbility
 from .service import SquadcastService, ServiceTag, ServiceMaintainer
 from .escalation_policy import SquadcastEscalationPolicy
+from .base import TerraformResource
 
 __all__ = [
     "SquadcastTeam",
@@ -14,4 +15,5 @@ __all__ = [
     "ServiceMaintainer",
     "SquadcastEscalationPolicy",
     "SquadcastTeamMember",
+    "TerraformResource",
 ]
