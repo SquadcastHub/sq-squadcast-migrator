@@ -1,22 +1,23 @@
 from pathlib import Path
 from typing import Dict, List, Union
 
-from ..config import settings
+from ..config import Settings
 from .models.base import TerraformResource
-
 
 class TerraformExporter:
     """Manages Terraform configuration file generation from Pydantic models"""
 
-    def __init__(self, output_dir: Union[str, Path], provider_config: Dict[str, str]):
+    def __init__(self, output_dir: Union[str, Path], provider_config: Dict[str, str], settings: Settings = None):
         """Initialize the Terraform configuration manager.
 
         Args:
             output_dir: Directory where Terraform files will be generated
             provider_config: Configuration for the Squadcast provider
+            settings: Application settings, optional
         """
         self.output_dir = Path(output_dir)
         self.provider_config = provider_config
+        self.settings = settings or Settings()
         self.__resources: Dict[str, List[TerraformResource]] = {}
 
     def add_resource(self, resource: TerraformResource):
@@ -110,11 +111,11 @@ class TerraformExporter:
         ]
         tfvars_file.write_text("\n".join(tfvars_content))
 
-        if settings.squadcast_refresh_token or settings.squadcast_region:
+        if self.settings.squadcast_refresh_token or self.settings.squadcast_region:
             tfvars_file = self.output_dir / "terraform.tfvars"
             tfvars_content = [
-                f'squadcast_refresh_token = "{settings.squadcast_refresh_token}"',
-                f'squadcast_region = "{settings.squadcast_region}"',
+                f'squadcast_refresh_token = "{self.settings.squadcast_refresh_token}"',
+                f'squadcast_region = "{self.settings.squadcast_region}"',
             ]
             tfvars_file.write_text("\n".join(tfvars_content))
 

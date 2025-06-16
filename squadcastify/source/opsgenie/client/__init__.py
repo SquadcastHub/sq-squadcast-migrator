@@ -1,9 +1,9 @@
-"""OpsGenie integration package."""
+"""OpsGenie API client package."""
 
-from .client.api import OpsgenieAPIClient
-from .client.models.user import OpsGenieUser
-from .client.models.team import OpsGenieTeam, OpsGenieTeamMember
-from .client.errors import (
+from .api import OpsgenieAPIClient
+from .models.user import OpsGenieUser
+from .models.team import OpsGenieTeam, OpsGenieTeamMember
+from .errors import (
     OpsGenieError,
     OpsGenieAPIError,
     OpsGenieNotFoundError,
@@ -11,14 +11,12 @@ from .client.errors import (
     OpsGenieRateLimitError,
     OpsGenieValidationError,
 )
-from .migrator import OpsGenieTransformer
 
 __all__ = [
     "OpsgenieAPIClient",
     "OpsGenieUser",
     "OpsGenieTeam",
     "OpsGenieTeamMember",
-    "OpsGenieTransformer",
     "OpsGenieError",
     "OpsGenieAPIError",
     "OpsGenieNotFoundError",
@@ -26,3 +24,6 @@ __all__ = [
     "OpsGenieRateLimitError",
     "OpsGenieValidationError",
 ]
+
+# Version of the package
+__version__ = "0.1.0"
