@@ -1,35 +1,30 @@
 # Makefile for Squadcast Migrator
 
-.PHONY: build run run-env help
+.PHONY: build generate plan apply
 
 # Default variables
-STATE_DIR ?= ./terraform_output
 ENV_FILE ?= .env
 
 build:
-	@echo "Building Docker image: squadcast-migrator"
-	docker build -t squadcast-migrator:latest .
+	@echo "Building Docker images"
+	docker-compose --env-file $(ENV_FILE) build
 
-run:
-	@echo "Running Squadcast Migrator with environment variables:"
-	mkdir -p "$(STATE_DIR)"
-	docker run -it --rm \
-	  -v "$(shell pwd)/$(STATE_DIR):/terraform_state" \
-	  -e "STATE_DIR=/terraform_state" \
-	  -e "OPSGENIE_API_KEY=${OPSGENIE_API_KEY}" \
-	  -e "OPSGENIE_API_URL=${OPSGENIE_API_URL}" \
-	  -e "SQUADCAST_REFRESH_TOKEN=${SQUADCAST_REFRESH_TOKEN}" \
-	  -e "SQUADCAST_REGION=${SQUADCAST_REGION}" \
-	  -e "SOURCE=${SOURCE}" \
-	  -e "LOG_LEVEL=${LOG_LEVEL}" \
-	  squadcast-migrator:latest
+generate:
+	@echo "Generating Terraform configuration"
+	docker-compose --env-file $(ENV_FILE) run --rm squadcastify
 
-# Run with environment variables from a .env file
-run-env:
-	@echo "Running Squadcast Migrator with .env file:"
-	mkdir -p "$(STATE_DIR)"
-	docker run -it --rm \
-	  -v "$(shell pwd)/$(STATE_DIR):/terraform_state" \
-	  -e "STATE_DIR=/terraform_state" \
-	  --env-file "$(ENV_FILE)" \
-	  squadcast-migrator:latest 
+plan: generate
+	@echo "Running Terraform init (if required) and plan"
+	$(eval TERRAFORM_STATE_PATH := $(shell grep TERRAFORM_STATE_PATH $(ENV_FILE) | cut -d '=' -f2))
+	@if [ ! -d "$(TERRAFORM_STATE_PATH)/.terraform" ]; then \
+		docker-compose --env-file $(ENV_FILE) run --rm terraform init; \
+	fi
+	docker-compose --env-file $(ENV_FILE) run --rm terraform plan
+
+apply: generate
+	@echo "Running Terraform init (if required) and apply"
+	$(eval TERRAFORM_STATE_PATH := $(shell grep TERRAFORM_STATE_PATH $(ENV_FILE) | cut -d '=' -f2))
+	@if [ ! -d "$(TERRAFORM_STATE_PATH)/.terraform" ]; then \
+		docker-compose --env-file $(ENV_FILE) run --rm terraform init; \
+	fi
+	docker-compose --env-file $(ENV_FILE) run --rm terraform apply

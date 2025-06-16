@@ -14,6 +14,7 @@ class OpsGenieRotation(OpsGenieModel):
     name: str
     start_date: datetime
     type: str  # weekly, daily, hourly, custom
+    end_date: Optional[datetime] = None
     participants: List[Dict[str, Any]] = field(default_factory=list)
     end_date: Optional[datetime] = None
     time_restriction: Optional[Dict[str, Any]] = None

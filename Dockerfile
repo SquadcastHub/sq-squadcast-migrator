@@ -1,25 +1,31 @@
+FROM python:3.13-slim as builder
+
+# Install UV for dependency management
+RUN pip install uv
+
+WORKDIR /build
+
+# Copy only dependency files
+COPY pyproject.toml uv.lock ./
+
+# Install build dependencies and Python packages
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends build-essential && \
+    uv venv /build/.venv && \
+    . /build/.venv/bin/activate && \
+    uv pip install --no-cache .
+
+# Final stage
 FROM python:3.13-slim
 
 WORKDIR /app
 
-# Install UV for better dependency management
-RUN pip install uv
+# Copy only necessary files from builder stage
+COPY --from=builder /build/.venv .venv
+COPY squadcastify squadcastify
 
-# Copy only the files needed for dependency installation first
-COPY pyproject.toml uv.lock ./
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV PATH="/usr/local/bin:${PATH}"
 
-# Install build tools and install dependencies using UV
-RUN apt-get update && \
-    apt-get install -y build-essential && \
-    rm -rf /var/lib/apt/lists/* && \
-    uv venv && \
-    . .venv/bin/activate && \
-    uv pip install .
-
-# Now copy the rest of the application
-COPY . .
-
-# Create directory for mounting terraform state
-RUN mkdir -p /terraform_state
-
-ENTRYPOINT ["uv", "run", "-m", "squadcastify.main"]
+ENTRYPOINT ["/app/.venv/bin/python", "-m", "squadcastify.main"]

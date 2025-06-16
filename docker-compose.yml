@@ -1,0 +1,27 @@
+version: "3.8"
+
+services:
+  squadcastify:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ${TERRAFORM_OUTPUT_PATH}:/app/terraform_output # Mount for generated Terraform files
+    environment:
+      OPSGENIE_API_KEY: ${OPSGENIE_API_KEY}
+      OPSGENIE_API_URL: ${OPSGENIE_API_URL}
+      SQUADCAST_REFRESH_TOKEN: ${SQUADCAST_REFRESH_TOKEN}
+      SQUADCAST_REGION: ${SQUADCAST_REGION}
+      SOURCE: ${SOURCE}
+      LOG_LEVEL: ${LOG_LEVEL}
+    env_file:
+      - .env
+
+  terraform:
+    image: hashicorp/terraform:1.8.0
+    depends_on:
+      - squadcastify
+    volumes:
+      - ${TERRAFORM_OUTPUT_PATH}:/terraform # Mount for generated Terraform files
+      - ${TERRAFORM_STATE_PATH}:/terraform/.terraform # Mount for Terraform state
+    command: plan
