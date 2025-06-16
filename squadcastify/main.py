@@ -26,6 +26,7 @@ def main():
             "region": "${var.squadcast_region}",  # Use a variable for region (us or eu)
             "refresh_token": "${var.squadcast_refresh_token}",  # Use a variable for sensitive data
         },
+        settings=settings,
     )
 
     try:
