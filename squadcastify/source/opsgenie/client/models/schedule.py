@@ -16,6 +16,7 @@ class OpsGenieRotation(OpsGenieModel):
     type: str  # weekly, daily, hourly, custom
     end_date: Optional[datetime] = None
     participants: List[Dict[str, Any]] = field(default_factory=list)
+    end_date: Optional[datetime] = None
     time_restriction: Optional[Dict[str, Any]] = None
     length: Optional[int] = None  # Length of the rotation in minutes
 
