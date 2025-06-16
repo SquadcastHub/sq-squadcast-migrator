@@ -30,6 +30,14 @@ class TerraformExporter:
             self.__resources[resource_type] = []
         self.__resources[resource_type].append(resource)
 
+    def add_resources(self, resources: List[TerraformResource]):
+        """Add multiple resources to be managed.
+
+        Internally calls add_resource for each resource.
+        """
+        for resource in resources:
+            self.add_resource(resource)
+
     def _generate_provider_file(self):
         """Generate the provider configuration file (internal method)"""
         provider_path = self.output_dir / "provider.tf"

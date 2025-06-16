@@ -8,8 +8,8 @@ from pathlib import Path
 from .config import Settings
 from .source.opsgenie.client import OpsgenieAPIClient
 from .source.opsgenie.migrator import OpsGenieTransformer
-from .source.transformer import Transformer
-from .log_utils.formatter import CustomFormatter
+from .terraform.transformer import Transformer
+from .logutil.formatter import CustomFormatter
 from .terraform.exporter import TerraformExporter
 
 
@@ -37,9 +37,10 @@ def main():
                 api_key=settings.opsgenie_api_key,
                 api_url=settings.opsgenie_api_url,
             ),
-            exporter=exporter,
         )
-        transformer.transform()
+
+        resources = transformer.transform()
+        exporter.add_resources(resources)
 
         # Export Terraform configurations
         logger.info("📄 Exporting Terraform configurations")
