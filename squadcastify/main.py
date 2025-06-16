@@ -15,18 +15,15 @@ from .terraform.exporter import TerraformExporter
 
 def main():
     settings = Settings()
+
     setup_logger(settings.log_level)
 
     logger = logging.getLogger(__name__)
 
+    logger.info(settings)
+
     # Use the state_dir parameter as the output directory
-    exporter: TerraformExporter = TerraformExporter(
-        output_dir=Path(settings.state_dir),  # Use the provided state_dir
-        provider_config={
-            "region": "${var.squadcast_region}",  # Use a variable for region (us or eu)
-            "refresh_token": "${var.squadcast_refresh_token}",  # Use a variable for sensitive data
-        },
-    )
+    exporter: TerraformExporter = TerraformExporter()
 
     try:
         logger.info(f"Initializing {settings.source} Terraform migrator")

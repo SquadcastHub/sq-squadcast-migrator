@@ -5,8 +5,6 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     source: str = os.getenv("SOURCE", "opsgenie")
 
-    state_dir: str = os.getenv("STATE_DIR", "terraform_state")
-
     pagerduty_api_token: str = os.getenv("PAGERDUTY_API_TOKEN", "")
     pagerduty_api_url: str = os.getenv("PAGERDUTY_API_URL", "https://api.pagerduty.com")
 
