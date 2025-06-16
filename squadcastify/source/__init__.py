@@ -2,8 +2,11 @@
 
 from .opsgenie.migrator import OpsGenieTransformer
 from ..terraform.transformer import Transformer
+from .opsgenie.client import OpsgenieAPIClient
+
 
 __all__ = [
-    "OpsgenieTransformer",
+    "OpsGenieTransformer",
+    "OpsgenieAPIClient",
     "Transformer",
 ]
