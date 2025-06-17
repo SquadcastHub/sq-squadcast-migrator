@@ -19,7 +19,7 @@ plan: generate
 	@if [ ! -d "$(TERRAFORM_STATE_PATH)/.terraform" ]; then \
 		docker-compose --env-file $(ENV_FILE) run --rm terraform init; \
 	fi
-	docker-compose --env-file $(ENV_FILE) run --rm terraform plan
+	docker-compose --env-file $(ENV_FILE) run --rm terraform plan 
 
 apply: generate
 	@echo "Running Terraform init (if required) and apply"

@@ -22,8 +22,11 @@ def main():
 
     logger.info(settings)
 
-    # Use the state_dir parameter as the output directory
-    exporter: TerraformExporter = TerraformExporter()
+    exporter: TerraformExporter = TerraformExporter(
+        output_dir=Path(settings.terraform_output_path),
+        squadcast_refresh_token=settings.squadcast_refresh_token,
+        squadcast_region=settings.squadcast_region,
+    )
 
     try:
         logger.info(f"Initializing {settings.source} Terraform migrator")
