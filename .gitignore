@@ -45,3 +45,4 @@ htmlcov/
 # .env
 
 terraform_output/
+terraform_state/

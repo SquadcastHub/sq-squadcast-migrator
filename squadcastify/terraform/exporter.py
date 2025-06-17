@@ -1,22 +1,28 @@
 from pathlib import Path
 from typing import Dict, List, Union
 
-from config import settings
 from .models.base import TerraformResource
-
 
 class TerraformExporter:
     """Manages Terraform configuration file generation from Pydantic models"""
 
-    def __init__(self, output_dir: Union[str, Path], provider_config: Dict[str, str]):
+    def __init__(
+        self,
+        output_dir: Union[str, Path] = Path("terraform_output"),
+        squadcast_refresh_token: str = "",
+        squadcast_region: str = "us",
+    ):
+    def __init__(self, output_dir: Union[str, Path], provider_config: Dict[str, str], settings: Settings = None):
         """Initialize the Terraform configuration manager.
 
         Args:
             output_dir: Directory where Terraform files will be generated
             provider_config: Configuration for the Squadcast provider
+            settings: Application settings, optional
         """
         self.output_dir = Path(output_dir)
-        self.provider_config = provider_config
+        self.__squadcast_refresh_token = squadcast_refresh_token
+        self.__squadcast_region = squadcast_region
         self.__resources: Dict[str, List[TerraformResource]] = {}
 
     def add_resource(self, resource: TerraformResource):
@@ -29,13 +35,26 @@ class TerraformExporter:
             self.__resources[resource_type] = []
         self.__resources[resource_type].append(resource)
 
+    def add_resources(self, resources: List[TerraformResource]):
+        """Add multiple resources to be managed.
+
+        Internally calls add_resource for each resource.
+        """
+        for resource in resources:
+            self.add_resource(resource)
+
     def _generate_provider_file(self):
         """Generate the provider configuration file (internal method)"""
         provider_path = self.output_dir / "provider.tf"
 
+        provider_config = {
+            "region": "${var.squadcast_region}",  # Use a variable for region (us or eu)
+            "refresh_token": "${var.squadcast_refresh_token}",  # Use a variable for sensitive data
+        }
+
         # Convert provider config to HCL
         config_lines = []
-        for key, value in self.provider_config.items():
+        for key, value in provider_config.items():
             config_lines.append(f'  {key} = "{value}"')
 
         content = [
@@ -84,6 +103,7 @@ class TerraformExporter:
 
     def _generate_root_variables_tf(self):
         """Generate a root variables.tf file for sensitive data (internal method)"""
+
         variables_path = self.output_dir / "variables.tf"
 
         content = [
@@ -110,11 +130,11 @@ class TerraformExporter:
         ]
         tfvars_file.write_text("\n".join(tfvars_content))
 
-        if settings.squadcast_refresh_token or settings.squadcast_region:
+        if self.__squadcast_refresh_token or self.__squadcast_region:
             tfvars_file = self.output_dir / "terraform.tfvars"
             tfvars_content = [
-                f'squadcast_refresh_token = "{settings.squadcast_refresh_token}"',
-                f'squadcast_region = "{settings.squadcast_region}"',
+                f'squadcast_refresh_token = "{self.__squadcast_refresh_token}"',
+                f'squadcast_region = "{self.__squadcast_region}"',
             ]
             tfvars_file.write_text("\n".join(tfvars_content))
 

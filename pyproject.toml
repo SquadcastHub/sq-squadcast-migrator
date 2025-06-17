@@ -10,11 +10,13 @@ dependencies = [
     "pydantic>=2.6.1",
     "tqdm==4.66.1",
     "pydantic-settings>=2.9.1",
+    "dotenv==0.9.9"
 ]
 
-[dependency-groups]
+[project.optional-dependencies]
 dev = [
     "ruff>=0.11.11",
+    "pytest>=8.0.0",
 ]
 
 [tool.ruff]

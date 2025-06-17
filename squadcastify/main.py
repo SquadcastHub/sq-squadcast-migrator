@@ -4,63 +4,39 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
-import click
 
-from config import settings
-from source.opsgenie.client import OpsGenieClient
-from source.opsgenie.migrator import OpsgenieTransformer
-from source.transformer import Transformer
-from log_utils.formatter import CustomFormatter
-from terraform.exporter import TerraformExporter
+from .config import Settings
+from .source.opsgenie.client import OpsgenieAPIClient
+from .source.opsgenie.migrator import OpsGenieTransformer
+from .terraform.transformer import Transformer
+from .logutil.formatter import CustomFormatter
+from .terraform.exporter import TerraformExporter
 
 
-@click.command()
-@click.option(
-    "--squadcast-refresh-token",
-    help="Squadcast refresh token to use for authentication",
-)
-@click.option("--squadcast-region", default="us", help="Squadcast region (us or eu)")
-@click.option(
-    "--source",
-    help="Source system to migrate from (default: opsgenie)",
-    default="opsgenie",
-)
-def main(squadcast_refresh_token: str, squadcast_region: str, source: str):
+def main():
+    settings = Settings()
+
     setup_logger(settings.log_level)
 
     logger = logging.getLogger(__name__)
 
-    # Override settings with command line arguments if provided
-    if squadcast_refresh_token:
-        settings.squadcast_refresh_token = squadcast_refresh_token
-        logger.info("Using Squadcast refresh token from command line")
+    logger.info(settings)
 
-    if squadcast_region:
-        settings.squadcast_region = squadcast_region
-        logger.info(f"Using Squadcast region: {squadcast_region}")
-
-
-    exporter: TerraformExporter = TerraformExporter(
-        output_dir=Path(
-            "terraform_output"
-        ),  ## TODO: Make this path configurable based on user input
-        provider_config={
-            "region": "${var.squadcast_region}",  # Use a variable for region (us or eu)
-            "refresh_token": "${var.squadcast_refresh_token}",  # Use a variable for sensitive data
-        },
-    )
+    # Use the state_dir parameter as the output directory
+    exporter: TerraformExporter = TerraformExporter()
 
     try:
         logger.info(f"Initializing {settings.source} Terraform migrator")
 
-        transformer: Transformer = OpsgenieTransformer(
-            client=OpsGenieClient(
+        transformer: Transformer = OpsGenieTransformer(
+            client=OpsgenieAPIClient(
                 api_key=settings.opsgenie_api_key,
                 api_url=settings.opsgenie_api_url,
             ),
-            exporter=exporter,
         )
-        transformer.transform()
+
+        resources = transformer.transform()
+        exporter.add_resources(resources)
 
         # Export Terraform configurations
         logger.info("📄 Exporting Terraform configurations")
