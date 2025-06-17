@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   squadcastify:
     build:
@@ -19,9 +17,10 @@ services:
 
   terraform:
     image: hashicorp/terraform:1.8.0
+    working_dir: /app/terraform_output
     depends_on:
       - squadcastify
     volumes:
-      - ${TERRAFORM_OUTPUT_PATH}:/terraform # Mount for generated Terraform files
-      - ${TERRAFORM_STATE_PATH}:/terraform/.terraform # Mount for Terraform state
+      - ${TERRAFORM_OUTPUT_PATH}:/app/terraform_output
+      - ${TERRAFORM_STATE_PATH}:/app/.terraform
     command: plan

@@ -12,13 +12,12 @@ class TerraformExporter:
         squadcast_refresh_token: str = "",
         squadcast_region: str = "us",
     ):
-    def __init__(self, output_dir: Union[str, Path], provider_config: Dict[str, str], settings: Settings = None):
         """Initialize the Terraform configuration manager.
 
         Args:
             output_dir: Directory where Terraform files will be generated
-            provider_config: Configuration for the Squadcast provider
-            settings: Application settings, optional
+            squadcast_refresh_token: Squadcast API token for authentication
+            squadcast_region: Squadcast region (default is 'us', can be 'eu')
         """
         self.output_dir = Path(output_dir)
         self.__squadcast_refresh_token = squadcast_refresh_token
