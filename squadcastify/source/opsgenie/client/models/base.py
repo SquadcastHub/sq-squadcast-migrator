@@ -26,3 +26,16 @@ class OpsGenieModel:
             k: v for k, v in data.items() if v is not None and k in cls.__annotations__
         }
         return cls(**valid_fields)
+
+@dataclass
+class OpsGenieOwnerTeam:
+    """Represents the owner team."""
+    name: str
+    id: str
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "OpsGenieOwnerTeam":
+        return cls(
+            id=data.get("id", ""),
+            name=data.get("name", "")
+        )

@@ -95,9 +95,10 @@ make run
 ```
 
 #### Direct Docker run:
-
 ```bash
 docker run -it \
+  -v $(pwd)/.env:/app/.env \
+  -v $(pwd)/terraform_output:/app/terraform_output \
   squadcast-migrator:latest
 ```
 
