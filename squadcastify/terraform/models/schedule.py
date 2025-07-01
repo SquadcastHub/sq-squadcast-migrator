@@ -100,7 +100,7 @@ class ScheduleRotation(TerraformResource):
     def __init__(self, **data):
         """Initialize a schedule rotation with auto-generated terraform_name if not provided."""
         if "terraform_name" not in data and "name" in data:
-            data["terraform_name"] = generate_terraform_name(data["name"])
+            data["terraform_name"] = generate_terraform_name(data["name"], data["schedule_id"])
         super().__init__(**data)
     
     @property

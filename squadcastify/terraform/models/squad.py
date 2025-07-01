@@ -25,7 +25,7 @@ class SquadcastSquad(TerraformResource):
         """Initialize a squad with auto-generated terraform_name if not provided."""
         if "terraform_name" not in data and "name" in data and "team_id" in data:
             data["terraform_name"] = generate_terraform_name(
-                data["name"], data["team_id"]
+                data["name"]
             )
         super().__init__(**data)
 
@@ -35,7 +35,29 @@ class SquadcastSquad(TerraformResource):
         return "squadcast_squad"
     
     def to_hcl(self) -> str:
-        """Convert the resource to HCL format with special handling for certain blocks"""
+        """Convert the resource to HCL format with special handling for certain blocks
+        
+        This method serializes the squad resource to Terraform HCL format,
+        handling the members list as individual blocks with user_id fields
+        as required by the Squadcast Terraform provider.
+        
+        Returns:
+            str: HCL representation of the squad resource
+        
+        Example:
+            ```
+            resource "squadcast_squad" "myteam_mysquad" {
+              name = "My Squad"
+              team_id = "team123"
+              members {
+                user_id = "user456"
+              }
+              members {
+                user_id = "user789"
+              }
+            }
+            ```
+        """
         # Convert model to dict, excluding None values
         try:
             data = self.model_dump(exclude_none=True, exclude={"terraform_name"})
