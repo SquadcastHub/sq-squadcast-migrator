@@ -1,7 +1,8 @@
 from typing import Optional, List, Literal
 from pydantic import BaseModel, Field, field_validator
 
-from .base import TerraformResource, EntityOwner
+from .base import TerraformResource
+from .common import EntityOwner
 from .utils import generate_terraform_name
 
 
@@ -56,7 +57,7 @@ class ShiftTimeslot(BaseModel):
         return v
 
 
-class SquadcastScheduleRotation(TerraformResource):
+class ScheduleRotation(TerraformResource):
     """Represents a Squadcast schedule rotation resource in Terraform."""
     
     schedule_id: str = Field(

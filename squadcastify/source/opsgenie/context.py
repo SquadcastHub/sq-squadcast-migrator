@@ -6,7 +6,8 @@ from squadcastify.terraform.models import (
     SquadcastUser, 
     SquadcastEscalationPolicy, 
     SquadcastSchedule,
-    SquadcastScheduleRotation
+    ScheduleRotation,
+    SquadcastSquad,
 )
 
 
@@ -16,9 +17,10 @@ class MigrationContext:
 
     users: Dict[str, SquadcastUser] = field(default_factory=dict)
     teams: Dict[str, SquadcastTeam] = field(default_factory=dict)
+    squads: Dict[str, SquadcastSquad] = field(default_factory=dict)
     escalation_policies: Dict[str, SquadcastEscalationPolicy] = field(default_factory=dict)
     schedules: Dict[str, SquadcastSchedule] = field(default_factory=dict)
-    rotations: Dict[str, SquadcastScheduleRotation] = field(default_factory=dict)
+    rotations: Dict[str, ScheduleRotation] = field(default_factory=dict)
 
     def add_user(self, og_id: str, user: SquadcastUser) -> None:
         """Add a migrated user to the context."""
@@ -27,6 +29,10 @@ class MigrationContext:
     def add_team(self, og_id: str, team: SquadcastTeam) -> None:
         """Add a migrated team to the context."""
         self.teams[og_id] = team
+    
+    def add_squad(self, og_id: str, squad: SquadcastSquad) -> None:
+        """Add a migrated squad to the context."""
+        self.squads[og_id] = squad
         
     def add_escalation_policy(self, og_id: str, policy: SquadcastEscalationPolicy) -> None:
         """Add a migrated escalation policy to the context."""
@@ -47,6 +53,14 @@ class MigrationContext:
     def has_team(self, og_id: str) -> bool:
         """Check if team exists in context."""
         return og_id in self.teams
+    
+    def get_squad(self, og_id: str) -> SquadcastTeam:
+        """Get a migrated squad by OpsGenie ID."""
+        return self.squads[og_id]
+        
+    def has_squad(self, og_id: str) -> bool:
+        """Check if squad exists in context."""
+        return og_id in self.squads
         
     def get_escalation_policy(self, og_id: str) -> SquadcastEscalationPolicy:
         """Get a migrated escalation policy by OpsGenie ID."""
@@ -68,11 +82,11 @@ class MigrationContext:
         """Check if schedule exists in context."""
         return og_id in self.schedules
         
-    def add_rotation(self, og_id: str, rotation: SquadcastScheduleRotation) -> None:
+    def add_rotation(self, og_id: str, rotation: ScheduleRotation) -> None:
         """Add a migrated rotation to the context."""
         self.rotations[og_id] = rotation
         
-    def get_rotation(self, og_id: str) -> SquadcastScheduleRotation:
+    def get_rotation(self, og_id: str) -> ScheduleRotation:
         """Get a migrated rotation by OpsGenie ID."""
         return self.rotations[og_id]
         

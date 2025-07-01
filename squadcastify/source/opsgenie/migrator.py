@@ -20,7 +20,7 @@ from ...terraform.models import (
     SquadcastUser,
     SquadcastEscalationPolicy,
     SquadcastSchedule,
-    SquadcastScheduleRotation,
+    ScheduleRotation,
     TerraformResource,
     EntityOwner,
     Target,
@@ -29,7 +29,8 @@ from ...terraform.models import (
     Participant,
     ParticipantGroup,
     ShiftTimeslot,
-    RoundRobin
+    RoundRobin,
+    SquadcastSquad,
 )
 
 logger = logging.getLogger(__name__)
@@ -90,12 +91,14 @@ class OpsGenieTransformer(Transformer):
         opsgenie_teams = self.client.teams.list_teams()
         logger.info(f"Found {len(opsgenie_teams)} teams in OpsGenie")
 
-        for team in tqdm(opsgenie_teams, desc="Migrating teams", unit="team"):
+        for og_team in tqdm(opsgenie_teams, desc="Migrating teams", unit="team"):
             try:
+                team = self.client.teams.get_team(og_team.id)
                 description = team.description or f"Team {team.name}"
                 squadcast_team = SquadcastTeam(name=team.name, description=description)
                 resources.append(squadcast_team)
                 self.context.add_team(team.id, squadcast_team)
+                team_member_ids = []
 
                 # Add team members
                 for member in team.members:
@@ -112,11 +115,27 @@ class OpsGenieTransformer(Transformer):
                             user_id=user.terraform_id_reference,
                         )
                     )
+                    team_member_ids.append(user.terraform_id_reference)
+                # Create a Squadcast squad for the team
+                if team_member_ids:
+                    squad = self._create_squad_for_team(team.id, team_member_ids)
+                    resources.append(squad)
+                    self.context.add_squad(team.id, squad)
+                else:
+                    logger.warning(f"No members found for team {team.name}, skipping squad creation")
 
                 logger.info(f"Successfully migrated team: {team.name}")
                 
             except Exception as e:
                 logger.error(f"Failed to migrate team {team.name}: {str(e)}")
+    
+    def _create_squad_for_team(self, team_id: str, team_member_ids: list[str]) -> SquadcastSquad:
+        """Create a Squadcast squad for the given team."""
+        logger.debug(f"Creating squad for team ID {team_id} with members {team_member_ids}")
+        team = self.context.get_team(team_id)
+        squad_name = f"{team.name} Squad"
+        squad = SquadcastSquad(name=squad_name, team_id=team.terraform_id_reference, members=team_member_ids)
+        return squad
                 
     def _migrate_escalation_policies(self, resources: List[TerraformResource]) -> None:
         """Migrate escalation policies from OpsGenie to Terraform configurations."""
@@ -272,6 +291,13 @@ class OpsGenieTransformer(Transformer):
                     logger.debug(f"Mapped user {recipient_id} to Squadcast user")
                 else:
                     logger.warning(f"User {recipient_id} not found in migration context")
+            elif recipient_type == "team":
+                if self.context.has_squad(recipient_id):
+                    squad = self.context.get_squad(recipient_id)
+                    targets.append(Target(id=squad.terraform_id_reference, type="squad"))
+                    logger.debug(f"Mapped squad {recipient_id} to Squadcast squad")
+                else:
+                    logger.warning(f"Squad {recipient_id} not found in migration context")
 
             elif recipient_type == "schedule":
                 if self.context.has_schedule(recipient_id):
@@ -527,7 +553,7 @@ class OpsGenieTransformer(Transformer):
                     duration=24 * 60
                 )
             ]
-        squadcast_rotation = SquadcastScheduleRotation(
+        squadcast_rotation = ScheduleRotation(
             schedule_id=squadcast_schedule.terraform_id_reference,
             name=rotation.name,
             start_date=start_date,

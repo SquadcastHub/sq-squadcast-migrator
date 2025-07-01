@@ -1,7 +1,8 @@
 from typing import Optional, List, Literal
 from pydantic import BaseModel, Field
 
-from .base import TerraformResource, EntityOwner
+from .base import TerraformResource
+from .common import EntityOwner
 from .utils import generate_terraform_name
 
 
@@ -74,7 +75,37 @@ class SquadcastEscalationPolicy(TerraformResource):
         return "squadcast_escalation_policy"
 
     def to_hcl(self) -> str:
-        """Convert the resource to HCL format with special handling for certain blocks"""
+        """
+        Convert the escalation policy resource to HCL format.
+        
+        This method handles the complex nested structure of escalation policies including:
+        - Multiple rules with targets
+        - Round robin configurations
+        - Repeat settings
+        - Entity ownership information
+        
+        Returns:
+            str: A valid HCL string representation of the escalation policy that can be used in Terraform.
+        
+        Example:
+            An escalation policy with a rule might convert to:
+            
+            resource "squadcast_escalation_policy" "my_policy" {
+              name = "Critical Services EP"
+              team_id = "12345"
+              rules {
+                delay_minutes = 5
+                targets {
+                  id = "user123"
+                  type = "user"
+                }
+              }
+              entity_owner {
+                id = "user456"
+                type = "user"
+              }
+            }
+        """
         # Convert model to dict, excluding None values
         try:
             data = self.model_dump(exclude_none=True, exclude={"terraform_name"})

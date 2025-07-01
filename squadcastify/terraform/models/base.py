@@ -164,11 +164,3 @@ class ReadOnlyField:
             setattr(instance, self.private_name, value)
         else:
             raise ValueError(f"Cannot modify read-only field {self.field_type}")
-
-class EntityOwner(BaseModel):
-    """Represents an entity owner (user or squad)"""
-
-    id: str = Field(..., description="The ID of the owner")
-    type: Literal["user", "squad"] = Field(
-        ..., description="The type of the owner (user or squad)"
-    )
