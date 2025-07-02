@@ -14,19 +14,64 @@ class TerraformResource(BaseModel):
 
     def to_hcl(self) -> str:
         """Convert the resource to HCL format"""
-        # Convert model to dict, excluding None values
-        data = self.model_dump(exclude_none=True, exclude={"terraform_name"})
+        try:
+            data = self.model_dump(exclude_none=True, exclude={"terraform_name"})
+        except AttributeError:
+            data = self.dict(exclude_none=True, exclude={"terraform_name"})
 
-        # Start with resource definition
         hcl = [f'resource "{self.terraform_resource_type}" "{self.terraform_name}" {{']
 
         # Add fields
         for key, value in data.items():
-            formatted_value = self._format_hcl_value(value)
-            hcl.append(f"  {key} = {formatted_value}")
+            # If this is a list of BaseModel objects or dicts, format as blocks
+            if isinstance(value, list) and value and (
+                isinstance(value[0], BaseModel) or isinstance(value[0], dict)
+            ):
+                for item in value:
+                    block_content = self._format_block_content(item)
+                    hcl.append(f"  {key} {{\n    " + "\n    ".join(block_content) + "\n  }")
+            # If this is a single BaseModel or dict, format as a block
+            elif isinstance(value, (BaseModel, dict)):
+                block_content = self._format_block_content(value)
+                hcl.append(f"  {key} {{\n    " + "\n    ".join(block_content) + "\n  }")
+            else:
+                formatted_value = self._format_hcl_value(value)
+                hcl.append(f"  {key} = {formatted_value}")
 
         hcl.append("}")
         return "\n".join(hcl)
+
+    def _format_block_content(self, block_value):
+        """Format a block's content, handling nested structures recursively"""
+        result = []
+        
+        # Convert BaseModel to dict if needed
+        if isinstance(block_value, BaseModel):
+            try:
+                block_data = block_value.model_dump(exclude_none=True)
+            except AttributeError:
+                block_data = block_value.dict(exclude_none=True)
+        else:
+            block_data = block_value
+            
+        # Process each field in the block
+        for k, v in block_data.items():
+            # Handle nested list of BaseModels or dicts as nested blocks
+            if isinstance(v, list) and v and (
+                isinstance(v[0], BaseModel) or isinstance(v[0], dict)
+            ):
+                for item in v:
+                    nested_content = self._format_block_content(item)
+                    result.append(f"{k} {{\n      " + "\n      ".join(nested_content) + "\n    }")
+            # Handle nested single BaseModel or dict as a nested block
+            elif isinstance(v, (BaseModel, dict)):
+                nested_content = self._format_block_content(v)
+                result.append(f"{k} {{\n      " + "\n      ".join(nested_content) + "\n    }")
+            else:
+                formatted_v = self._format_hcl_value(v)
+                result.append(f"{k} = {formatted_v}")
+                
+        return result
 
     # HCL formatting constants
     _HCL_INDENT = "  "
@@ -41,29 +86,6 @@ class TerraformResource(BaseModel):
                 - str: Wrapped in quotes
                 - bool: Converted to lowercase 'true' or 'false'
                 - list/tuple/set: Formatted as HCL list
-                - dict: Formatted as HCL map
-                - BaseModel: Formatted as HCL block
-                - int/float: Converted to string
-                - None: Raises ValueError
-
-        Returns:
-            str: The HCL-formatted value
-
-        Raises:
-            ValueError: If the value is None or has an unsupported type
-            TypeError: If a dict key is not a string
-        """
-        if value is None:
-            raise ValueError("HCL cannot represent None/null values")
-
-        """Format a value according to HCL syntax rules.
-
-        Args:
-            value: The value to format. Can be one of:
-                - TerraformResource: Formatted as a resource reference
-                - str: Wrapped in quotes
-                - bool: Converted to lowercase 'true' or 'false'
-                - list/tuple: Formatted as HCL list
                 - dict: Formatted as HCL map
                 - BaseModel: Formatted as HCL block
                 - int/float: Converted to string

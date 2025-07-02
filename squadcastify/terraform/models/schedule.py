@@ -108,54 +108,6 @@ class ScheduleRotation(TerraformResource):
         """Return the Terraform resource type for Squadcast schedule rotation"""
         return "squadcast_schedule_rotation_v2"
     
-    def to_hcl(self) -> str:
-        """Convert the rotation resource to HCL format with special handling for nested structures"""
-        # Convert model to dict, excluding None values
-        try:
-            data = self.model_dump(exclude_none=True, exclude={"terraform_name"})
-        except AttributeError:
-            data = self.dict(exclude_none=True, exclude={"terraform_name"})
-
-        hcl = [f'resource "{self.terraform_resource_type}" "{self.terraform_name}" {{']
-
-        # Add fields
-        for key, value in data.items():
-            if key == "participant_groups":
-                # Format participant_groups as individual blocks
-                if value:
-                    for group in value:
-                        group_content = []
-                        for k, v in group.items():
-                            if k == "participants":
-                                # Handle nested participants
-                                for participant in v:
-                                    part_content = []
-                                    for pk, pv in participant.items():
-                                        formatted_pv = self._format_hcl_value(pv)
-                                        part_content.append(f"{pk} = {formatted_pv}")
-                                    group_content.append(f"participants {{\n      " + "\n      ".join(part_content) + "\n    }")
-                            else:
-                                formatted_v = self._format_hcl_value(v)
-                                group_content.append(f"{k} = {formatted_v}")
-                                
-                        hcl.append(f"  participant_groups {{\n    " + "\n    ".join(group_content) + "\n  }")
-                
-            elif key == "shift_timeslots":
-                # Format shift_timeslots as individual blocks
-                if value:
-                    for timeslot in value:
-                        ts_content = []
-                        for k, v in timeslot.items():
-                            formatted_v = self._format_hcl_value(v)
-                            ts_content.append(f"{k} = {formatted_v}")
-                        hcl.append(f"  shift_timeslots {{\n    " + "\n    ".join(ts_content) + "\n  }")
-                
-            else:
-                formatted_value = self._format_hcl_value(value)
-                hcl.append(f"  {key} = {formatted_value}")
-                
-        hcl.append("}")
-        return "\n".join(hcl)
 
 
 class SquadcastSchedule(TerraformResource):
