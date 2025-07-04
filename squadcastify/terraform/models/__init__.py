@@ -6,7 +6,7 @@ from .escalation_policy import SquadcastEscalationPolicy, Rule, Target, Repeat, 
 from .base import TerraformResource
 from .common import EntityOwner
 from .schedule import SquadcastSchedule, ScheduleRotation, Participant, ParticipantGroup, ShiftTimeslot
-from .squad import SquadcastSquad
+from .squad import SquadcastSquad, SquadMember
 
 __all__ = [
     "SquadcastTeam",
@@ -30,5 +30,6 @@ __all__ = [
     "Participant",
     "ParticipantGroup",
     "ShiftTimeslot",
-    "SquadcastSquad"
+    "SquadcastSquad",
+    "SquadMember"
 ]

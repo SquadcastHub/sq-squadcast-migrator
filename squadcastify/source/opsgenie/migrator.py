@@ -31,6 +31,7 @@ from ...terraform.models import (
     ShiftTimeslot,
     RoundRobin,
     SquadcastSquad,
+    SquadMember
 )
 
 logger = logging.getLogger(__name__)
@@ -134,7 +135,10 @@ class OpsGenieTransformer(Transformer):
         logger.debug(f"Creating squad for team ID {team_id} with members {team_member_ids}")
         team = self.context.get_team(team_id)
         squad_name = f"{team.name} Squad"
-        squad = SquadcastSquad(name=squad_name, team_id=team.terraform_id_reference, members=team_member_ids)
+        squad_members: List[SquadMember] = [
+            SquadMember(user_id=user_id) for user_id in team_member_ids
+        ]
+        squad = SquadcastSquad(name=squad_name, team_id=team.terraform_id_reference, members=squad_members)
         return squad
                 
     def _migrate_escalation_policies(self, resources: List[TerraformResource]) -> None:
