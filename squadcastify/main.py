@@ -4,6 +4,7 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
+import traceback
 
 from .config import Settings
 from .source.opsgenie.client import OpsgenieAPIClient
@@ -66,7 +67,8 @@ def main():
             print("=" * 80 + "\n")
         else:
             logger.error(
-                f"❌ Failed to export Terraform configuration: {export_result['message']}"
+                f"❌ Failed to export Terraform configuration: {export_result['message']}",
+                traceback.format_exc(),
             )
 
     except Exception as e:

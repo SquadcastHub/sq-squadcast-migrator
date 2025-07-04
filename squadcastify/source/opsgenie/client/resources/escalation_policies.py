@@ -21,7 +21,7 @@ class EscalationPoliciesClient(BaseResource[OpsGenieEscalationPolicy]):
             List of OpsGenieEscalationPolicy objects
         """
         params = {"sort": "name", "order": "ASC"}
-        return self._get_all("escalation-policies", params=params)
+        return self._get_all("escalations", params=params)
 
     def get_policy(self, policy_id: str) -> OpsGenieEscalationPolicy:
         """
@@ -33,4 +33,4 @@ class EscalationPoliciesClient(BaseResource[OpsGenieEscalationPolicy]):
         Returns:
             OpsGenieEscalationPolicy object with rules and details
         """
-        return self._get_single(f"escalation-policies/{policy_id}")
+        return self._get_single(f"escalations/{policy_id}")
