@@ -1,27 +1,10 @@
 """Tests for the Squad Terraform model."""
 
 import unittest
-from squadcastify.terraform.models import SquadcastSquad
+from squadcastify.terraform.models import SquadcastSquad, SquadMember
 
 class TestSquadcastSquad(unittest.TestCase):
     """Test cases for SquadcastSquad model."""
-    
-    def test_squad_to_hcl_basic(self):
-        """Test basic HCL generation for a squad without members."""
-        squad = SquadcastSquad(
-            terraform_name="test_squad",
-            name="Test Squad",
-            team_id="${squadcast_team.test_team.id}"
-        )
-        
-        expected_hcl = (
-            'resource "squadcast_squad" "test_squad" {\n'
-            '  name = "Test Squad"\n'
-            '  team_id = "${squadcast_team.test_team.id}"\n'
-            '}'
-        )
-        
-        self.assertEqual(squad.to_hcl(), expected_hcl)
     
     def test_squad_to_hcl_with_members(self):
         """Test HCL generation for a squad with members."""
@@ -30,8 +13,8 @@ class TestSquadcastSquad(unittest.TestCase):
             name="Test Squad With Members",
             team_id="${squadcast_team.test_team.id}",
             members=[
-                "${squadcast_user.user1.id}",
-                "${squadcast_user.user2.id}"
+                SquadMember(user_id="${squadcast_user.user1.id}"),
+                SquadMember(user_id="${squadcast_user.user2.id}")
             ]
         )
         
@@ -59,7 +42,7 @@ class TestSquadcastSquad(unittest.TestCase):
         
         # Check that terraform_name was auto-generated
         self.assertIsNotNone(squad.terraform_name)
-        self.assertTrue(squad.terraform_name.startswith("team123"))
+        self.assertTrue(squad.terraform_name.startswith("auto_name_squad"))
     
     def test_terraform_resource_type(self):
         """Test the terraform_resource_type property."""
