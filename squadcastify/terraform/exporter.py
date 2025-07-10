@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Dict, List, Union
 
-from .models.base import TerraformResource
+from .models.base import TerraformResource, TerraformDataSource
 
 class TerraformExporter:
     """Manages Terraform configuration file generation from Pydantic models"""
@@ -23,19 +23,26 @@ class TerraformExporter:
         self.__squadcast_refresh_token = squadcast_refresh_token
         self.__squadcast_region = squadcast_region
         self.__resources: Dict[str, List[TerraformResource]] = {}
+        self.__data_sources: Dict[str, List[TerraformDataSource]] = {}
 
-    def add_resource(self, resource: TerraformResource):
-        """Add a resource to be managed.
+    def add_resource(self, resource: Union[TerraformResource, TerraformDataSource]):
+        """Add a resource or data source to be managed.
 
         Resources are grouped by type for organized file generation.
         """
-        resource_type = resource.terraform_resource_type
-        if resource_type not in self.__resources:
-            self.__resources[resource_type] = []
-        self.__resources[resource_type].append(resource)
+        if isinstance(resource, TerraformDataSource):
+            data_source_type = resource.terraform_data_source_type
+            if data_source_type not in self.__data_sources:
+                self.__data_sources[data_source_type] = []
+            self.__data_sources[data_source_type].append(resource)
+        elif isinstance(resource, TerraformResource):
+            resource_type = resource.terraform_resource_type
+            if resource_type not in self.__resources:
+                self.__resources[resource_type] = []
+            self.__resources[resource_type].append(resource)
 
-    def add_resources(self, resources: List[TerraformResource]):
-        """Add multiple resources to be managed.
+    def add_resources(self, resources: List[Union[TerraformResource, TerraformDataSource]]):
+        """Add multiple resources and data sources to be managed.
 
         Internally calls add_resource for each resource.
         """
@@ -83,6 +90,19 @@ class TerraformExporter:
         content.append("# Main Terraform configuration file containing all resources")
         content.append("")
 
+        # Add all data sources first (they need to be defined before resources that reference them)
+        for data_source_type, data_sources in self.__data_sources.items():
+            # Add a comment header for the data source type
+            content.append(
+                f"# {data_source_type.replace('squadcast_', '').upper()} DATA SOURCES"
+            )
+            content.append("")
+
+            # Add all data sources of this type
+            for data_source in data_sources:
+                content.append(data_source.to_hcl())
+                content.append("")
+
         # Add all resources grouped by resource type
         for resource_type, resources in self.__resources.items():
             # Add a comment header for the resource type
@@ -96,7 +116,7 @@ class TerraformExporter:
                 content.append(resource.to_hcl())
                 content.append("")
 
-        # Write the file if we have any resources
+        # Write the file if we have any resources or data sources
         if len(content) > 2:  # More than just the header
             main_path.write_text("\n".join(content))
 
@@ -167,7 +187,7 @@ class TerraformExporter:
                 variables_tf.write_text("\n".join(content).strip())
 
     def _generate_resource_files(self):
-        """Generate Terraform configuration files for all resources (internal method)"""
+        """Generate Terraform configuration files for all resources and data sources (internal method)"""
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self._generate_provider_file()
         self._generate_root_variables_tf()
@@ -194,6 +214,23 @@ class TerraformExporter:
             output_content.append("}")
             output_content.append("")  # Empty line between outputs
 
+        # Generate outputs for all data source types
+        for data_source_type, data_sources in self.__data_sources.items():
+            print(f"Processing data source type: {data_source_type}")
+
+            # Create a logical output name like "team_role_ids", etc.
+            logical_output_name = data_source_type.replace("squadcast_", "") + "_ids"
+
+            output_content.append(f'output "{logical_output_name}" {{')
+            output_content.append("  value = {")
+            for data_source in data_sources:
+                output_content.append(
+                    f"    {data_source.terraform_name} = data.{data_source.terraform_data_source_type}.{data_source.terraform_name}.id"
+                )
+            output_content.append("  }")
+            output_content.append("}")
+            output_content.append("")  # Empty line between outputs
+
         if output_content:
             outputs_tf.write_text("\n".join(output_content).strip())
 
@@ -207,6 +244,10 @@ class TerraformExporter:
                 "resource_counts": {
                     rtype: len(resources)
                     for rtype, resources in self.__resources.items()
+                },
+                "data_source_counts": {
+                    dtype: len(data_sources)
+                    for dtype, data_sources in self.__data_sources.items()
                 },
             }
         except Exception as e:

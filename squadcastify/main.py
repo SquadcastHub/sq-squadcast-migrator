@@ -52,6 +52,7 @@ def main():
                 f"✅ Successfully generated Terraform configuration in: {export_result['output_dir']}"
             )
             logger.info(f"📊 Resource counts: {export_result['resource_counts']}")
+            logger.info(f"📊 Data source counts: {export_result['data_source_counts']}")
 
             print("\n" + "=" * 80)
             print("🎉 MIGRATION COMPLETED SUCCESSFULLY!")

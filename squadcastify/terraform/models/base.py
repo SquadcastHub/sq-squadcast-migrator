@@ -2,6 +2,81 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, ConfigDict
 
 
+class TerraformDataSource(BaseModel):
+    """Base class for Terraform data sources"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    terraform_name: str = Field(
+        ...,
+        description="The name/identifier of the data source in Terraform configuration",
+    )
+
+    def to_hcl(self) -> str:
+        """Convert the data source to HCL format"""
+        try:
+            data = self.model_dump(exclude_none=True, exclude={"terraform_name"})
+        except AttributeError:
+            data = self.dict(exclude_none=True, exclude={"terraform_name"})
+
+        hcl = [f'data "{self.terraform_data_source_type}" "{self.terraform_name}" {{']
+
+        # Add fields
+        for key, value in data.items():
+            formatted_value = self._format_hcl_value(value)
+            hcl.append(f"  {key} = {formatted_value}")
+
+        hcl.append("}")
+        return "\n".join(hcl)
+
+    def _format_hcl_value(self, value: Any) -> str:
+        """Format a value according to HCL syntax rules."""
+        if value is None:
+            raise ValueError("HCL cannot represent None/null values")
+
+        if isinstance(value, str):
+            return f'"{value}"'
+        if isinstance(value, bool):
+            return str(value).lower()
+        if isinstance(value, (int, float)):
+            return str(value)
+        # Handle TerraformResource references (forward reference)
+        if hasattr(value, 'terraform_id_reference'):
+            return value.terraform_id_reference
+
+        # Handle container types
+        if isinstance(value, (list, tuple, set)):
+            if isinstance(value, set):
+                value = sorted(value, key=str)
+            items = [self._format_hcl_value(item) for item in value]
+            return f"[{', '.join(items)}]"
+
+        if isinstance(value, dict):
+            formatted_items = []
+            for k, v in value.items():
+                if not isinstance(k, str):
+                    raise TypeError(f"Dictionary keys must be strings, got {type(k)}")
+                formatted_value = self._format_hcl_value(v)
+                formatted_items.append(f"{k} = {formatted_value}")
+            return f"{{{', '.join(formatted_items)}}}"
+
+        raise ValueError(f"Cannot format value of type {type(value).__name__} as HCL")
+
+    @property
+    def terraform_data_source_type(self) -> str:
+        """Return the Terraform data source type (must be implemented by subclasses)"""
+        raise NotImplementedError("Subclasses must implement terraform_data_source_type")
+
+    @property
+    def terraform_id_reference(self) -> str:
+        """Return the Terraform ID reference for this data source.
+
+        This is used when this data source is referenced by another resource.
+        Example: "${data.squadcast_team_role.admin_role.id}"
+        """
+        return f"${{data.{self.terraform_data_source_type}.{self.terraform_name}.id}}"
+
+
 class TerraformResource(BaseModel):
     """Base class for all Terraform resources with common metadata"""
 

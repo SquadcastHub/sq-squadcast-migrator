@@ -8,8 +8,7 @@ from tqdm import tqdm
 
 from tqdm import tqdm
 
-from squadcastify.source.opsgenie.client.models.escalation import OpsGenieEscalationPolicy
-from squadcastify.source.opsgenie.client.models.schedule import OpsGenieSchedule, OpsGenieRotation
+from squadcastify.source.opsgenie.client.models.schedule import OpsGenieRotation
 from squadcastify.terraform.transformer import Transformer
 
 from .context import MigrationContext
@@ -17,6 +16,7 @@ from .client.api import OpsgenieAPIClient
 from ...terraform.models import (
     SquadcastTeam,
     SquadcastTeamMember,
+    SquadcastTeamRole,
     SquadcastUser,
     SquadcastEscalationPolicy,
     SquadcastSchedule,
@@ -127,7 +127,16 @@ class OpsGenieTransformer(Transformer):
                 self.context.add_team(team.id, squadcast_team)
                 team_member_ids = []
 
-                # Add team members
+                # Collect all unique roles for this team
+                team_roles = set()
+                for member in team.members:
+                    if member.role:
+                        team_roles.add(member.role.lower())
+                
+                # Create role data sources for this team
+                role_data_sources = self._create_team_role_data_sources(resources, squadcast_team, team_roles)
+
+                # Add team members with role assignments
                 for member in team.members:
                     if not self.context.has_user(member.id):
                         logger.warning(
@@ -136,13 +145,37 @@ class OpsGenieTransformer(Transformer):
                         continue
 
                     user = self.context.get_user(member.id)
+                    
+                    # Get the role data source for this member
+                    member_role = member.role.lower() if member.role else "user"
+                    role_data_source = role_data_sources.get(member_role)
+                    
+                    if role_data_source:
+                        role_ids = [role_data_source.terraform_id_reference]
+                    else:
+                        # Fallback to default user role if no specific role found
+                        logger.warning(f"No role data source found for role '{member_role}', using default 'user' role")
+                        if "user" in role_data_sources:
+                            role_ids = [role_data_sources["user"].terraform_id_reference]
+                        else:
+                            # Create a default user role data source if it doesn't exist
+                            default_role = SquadcastTeamRole(
+                                name="User",
+                                team_id=squadcast_team.terraform_id_reference,
+                                terraform_name=f"{squadcast_team.terraform_name}_user_role"
+                            )
+                            resources.append(default_role)
+                            role_ids = [default_role.terraform_id_reference]
+                    
                     resources.append(
                         SquadcastTeamMember(
                             team_id=squadcast_team.terraform_id_reference,
                             user_id=user.terraform_id_reference,
+                            role_ids=role_ids
                         )
                     )
                     team_member_ids.append(user.terraform_id_reference)
+                    
                 # Create a Squadcast squad for the team
                 if team_member_ids:
                     squad = self._create_squad_for_team(team.id, team_member_ids)
@@ -496,7 +529,7 @@ class OpsGenieTransformer(Transformer):
             if restriction_type == "weekday-and-time-of-day" and restrictions:
                 custom_period_unit = "day" if period == "daily" else "week"
                 custom_period_frequency = 1
-                period = "custom"  # Force custom period for time-restricted rotations
+                period = "custom" # Force custom period for time-restricted rotations
 
                 shift_timeslots: List[ShiftTimeslot] = []
                 for restriction in restrictions:
@@ -652,6 +685,30 @@ class OpsGenieTransformer(Transformer):
                 logger.error(f"Failed to get team details for {team_summary.name}: {str(e)}")
         
         return team_member_ids
+
+    def _create_team_role_data_sources(self, resources: List[TerraformResource], team: SquadcastTeam, roles: set) -> Dict[str, SquadcastTeamRole]:
+        """Create data sources for team roles and return a mapping of role names to data sources."""
+        role_data_sources = {}
+        
+        for role_name in roles:
+            # Normalize role name (capitalize first letter)
+            normalized_role_name = role_name.capitalize()
+            
+            # Create terraform name based on role and team
+            terraform_name = f"{team.terraform_name}_{normalized_role_name.lower()}_role"
+            
+            role_data_source = SquadcastTeamRole(
+                name=normalized_role_name,
+                team_id=team.terraform_id_reference,
+                terraform_name=terraform_name
+            )
+            
+            resources.append(role_data_source)
+            role_data_sources[role_name] = role_data_source
+            
+            logger.info(f"Created role data source: {normalized_role_name} for team {team.name}")
+        
+        return role_data_sources
 
     def transform(self) -> List[TerraformResource]:
         """Transform OpsGenie resources to Terraform configurations and return as a list."""
