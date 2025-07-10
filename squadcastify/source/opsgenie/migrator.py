@@ -51,6 +51,7 @@ class OpsGenieTransformer(Transformer):
     Attributes:
         client (OpsgenieAPIClient): The OpsGenie API client used to fetch users and teams.
         context (MigrationContext): The migration context for tracking resource mappings.
+        target_team_name (Optional[str]): Optional team name to filter migration to specific team only.
 
     Methods:
         _migrate_users(resources): Migrates users from OpsGenie to SquadcastUser resources.
@@ -61,13 +62,34 @@ class OpsGenieTransformer(Transformer):
 
     client: OpsgenieAPIClient
     context: MigrationContext = field(default_factory=MigrationContext)
+    target_team_name: Optional[str] = None
 
     def _migrate_users(self, resources: List[TerraformResource]) -> None:
         """Migrate users from OpsGenie to Terraform configurations."""
         logger.info("Starting OpsGenie user migration to Terraform")
 
+        # Get target teams to determine which users to migrate
+        target_teams = self._get_target_teams()
+        if self.target_team_name and not target_teams:
+            logger.error("Cannot proceed with user migration - target team not found")
+            return
+        
+        # If filtering by team, only migrate users who are members of target teams
+        if self.target_team_name:
+            team_member_ids = self._get_team_member_ids(target_teams)
+            logger.info(f"Found {len(team_member_ids)} unique users in target team(s)")
+            
+            if not team_member_ids:
+                logger.warning("No users found in target team(s)")
+                return
+        
         opsgenie_users = self.client.users.list_users()
-        logger.info(f"Found {len(opsgenie_users)} users in OpsGenie")
+        logger.info(f"Found {len(opsgenie_users)} total users in OpsGenie")
+
+        # Filter users if team filtering is enabled
+        if self.target_team_name:
+            opsgenie_users = [user for user in opsgenie_users if user.id in team_member_ids]
+            logger.info(f"Filtered to {len(opsgenie_users)} users from target team(s)")
 
         for user in tqdm(opsgenie_users, desc="Migrating users", unit="user"):
             try:
@@ -89,8 +111,12 @@ class OpsGenieTransformer(Transformer):
         """Migrate teams from OpsGenie to Terraform configurations."""
         logger.info("Starting OpsGenie team migration to Terraform")
 
-        opsgenie_teams = self.client.teams.list_teams()
-        logger.info(f"Found {len(opsgenie_teams)} teams in OpsGenie")
+        opsgenie_teams = self._get_target_teams()
+        if self.target_team_name and not opsgenie_teams:
+            logger.error("Cannot proceed with team migration - target team not found")
+            return
+            
+        logger.info(f"Found {len(opsgenie_teams)} team(s) to migrate")
 
         for og_team in tqdm(opsgenie_teams, desc="Migrating teams", unit="team"):
             try:
@@ -147,6 +173,15 @@ class OpsGenieTransformer(Transformer):
         
         opsgenie_policies = self.client.escalation_policies.list_policies()
         logger.info(f"Found {len(opsgenie_policies)} escalation policies in OpsGenie")
+        
+        # Filter policies by target team if specified
+        if self.target_team_name:
+            target_team_ids = {team.id for team in self._get_target_teams()}
+            opsgenie_policies = [
+                policy for policy in opsgenie_policies 
+                if policy.owner_team and policy.owner_team.id in target_team_ids
+            ]
+            logger.info(f"Filtered to {len(opsgenie_policies)} escalation policies for target team(s)")
         
         # Map policies to Squadcast format
         for policy in tqdm(opsgenie_policies, desc="Migrating escalation policies", unit="policy"):
@@ -329,6 +364,15 @@ class OpsGenieTransformer(Transformer):
         opsgenie_schedules = self.client.schedules.list_schedules()
         logger.info(f"Found {len(opsgenie_schedules)} schedules in OpsGenie")
         
+        # Filter schedules by target team if specified
+        if self.target_team_name:
+            target_team_ids = {team.id for team in self._get_target_teams()}
+            opsgenie_schedules = [
+                schedule for schedule in opsgenie_schedules 
+                if schedule.owner_team and schedule.owner_team.id in target_team_ids
+            ]
+            logger.info(f"Filtered to {len(opsgenie_schedules)} schedules for target team(s)")
+        
         for schedule in tqdm(opsgenie_schedules, desc="Migrating schedules", unit="schedule"):
             try:
                 logger.info(f"Processing schedule: {schedule.name} (ID: {schedule.id})")
@@ -386,6 +430,7 @@ class OpsGenieTransformer(Transformer):
         
         # Map rotation type to period
         period_map = {
+            "hourly": "daily",
             "daily": "daily",
             "weekly": "weekly",
             "custom": "custom"
@@ -575,9 +620,45 @@ class OpsGenieTransformer(Transformer):
         self.context.add_rotation(rotation.id, squadcast_rotation)
         logger.info(f"Successfully migrated rotation: {rotation.name}")
     
+    def _get_target_teams(self):
+        """Get the list of teams to migrate based on target_team_name filter."""
+        all_teams = self.client.teams.list_teams()
+        
+        if self.target_team_name:
+            logger.info(f"Filtering migration to team: {self.target_team_name}")
+            target_teams = [team for team in all_teams if team.name.lower() == self.target_team_name.lower()]
+            
+            if not target_teams:
+                logger.error(f"Target team '{self.target_team_name}' not found in OpsGenie")
+                logger.info(f"Available teams: {[team.name for team in all_teams]}")
+                return []
+            
+            logger.info(f"Found target team: {target_teams[0].name} (ID: {target_teams[0].id})")
+            return target_teams
+        else:
+            logger.info("No team filter specified, migrating all teams")
+            return all_teams
+    
+    def _get_team_member_ids(self, target_teams):
+        """Get all user IDs that are members of the target teams."""
+        team_member_ids = set()
+        
+        for team_summary in target_teams:
+            try:
+                team_detail = self.client.teams.get_team(team_summary.id)
+                for member in team_detail.members:
+                    team_member_ids.add(member.id)
+            except Exception as e:
+                logger.error(f"Failed to get team details for {team_summary.name}: {str(e)}")
+        
+        return team_member_ids
+
     def transform(self) -> List[TerraformResource]:
         """Transform OpsGenie resources to Terraform configurations and return as a list."""
-        logger.info("🚀 Starting migration from OpsGenie to Terraform")
+        if self.target_team_name:
+            logger.info(f"🚀 Starting filtered migration from OpsGenie to Terraform (Team: {self.target_team_name})")
+        else:
+            logger.info("🚀 Starting migration from OpsGenie to Terraform (All teams)")
 
         resources: List[TerraformResource] = []
 

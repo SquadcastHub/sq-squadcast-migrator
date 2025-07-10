@@ -68,6 +68,8 @@ PAGERDUTY_API_URL=https://api.pagerduty.com
 OPSGENIE_API_KEY=your_opsgenie_api_key_here
 OPSGENIE_API_URL=https://api.opsgenie.com/v2
 
+OPSGENIE_TARGET_TEAM_NAME=ITSM # Optional - pass only if you want to migrated data from a particular team
+
 # Squadcast API Configuration
 SQUADCAST_REFRESH_TOKEN=your_squadcast_refresh_token_here
 SQUADCAST_REGION=us # or 'eu' depending on your region
@@ -90,6 +92,23 @@ To migrate all supported entities:
 ```bash
 uv run -m squadcastify.main
 ```
+
+#### Team-Specific Migration
+
+For OpsGenie migrations, you can filter the migration to a specific team. This is useful when you want to migrate one team at a time or test the migration process on a smaller subset of data.
+
+In order to do this, you need to add `OPSGENIE_TARGET_TEAM_NAME` to the .env file.
+
+```
+OPSGENIE_TARGET_TEAM_NAME=ITSM
+```
+
+When using team filtering, the migrator will only process:
+
+- Users who are members of the specified team
+- The specified team itself
+- Escalation policies owned by the specified team
+- Schedules owned by the specified team
 
 ### Docker CLI Usage
 

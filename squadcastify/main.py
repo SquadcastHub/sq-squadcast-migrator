@@ -37,6 +37,7 @@ def main():
                 api_key=settings.opsgenie_api_key,
                 api_url=settings.opsgenie_api_url,
             ),
+            target_team_name=settings.opsgenie_target_team_name
         )
 
         resources = transformer.transform()
