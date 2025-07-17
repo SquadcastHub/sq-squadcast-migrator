@@ -317,13 +317,13 @@ class OpsGenieTransformer(Transformer):
                     if times > 0 and delay > 0:
                         repeat = Repeat(times=times, delay_minutes=delay)
                 
-                # Find a user to be entity owner (TODO: What can be done better here?)
+                # Use the squad as entity owner
                 entity_owner = None
-                if self.context.users:
-                    first_user_id = next(iter(self.context.users.values())).terraform_id_reference
-                    entity_owner = EntityOwner(id=first_user_id, type="user")
+                if self.context.has_squad(team_id):
+                    squad = self.context.get_squad(team_id)
+                    entity_owner = EntityOwner(id=squad.terraform_id_reference, type="squad")
                 else:
-                    logger.warning(f"No users available for entity_owner in policy {policy.name}")
+                    logger.warning(f"No squad available for entity_owner in policy {policy.name}")
                     continue
                 
                 logger.info(f"Creating Squadcast policy with {len(squadcast_rules)} rules")
@@ -425,13 +425,13 @@ class OpsGenieTransformer(Transformer):
                 # Get the Squadcast team
                 squadcast_team = self.context.get_team(team_id)
                 
-                # Find a user to be entity owner (using the same approach as in _migrate_escalation_policies)
+                # Use the squad as entity owner
                 entity_owner = None
-                if self.context.users:
-                    first_user_id = next(iter(self.context.users.values())).terraform_id_reference
-                    entity_owner = EntityOwner(id=first_user_id, type="user")
+                if self.context.has_squad(team_id):
+                    squad = self.context.get_squad(team_id)
+                    entity_owner = EntityOwner(id=squad.terraform_id_reference, type="squad")
                 else:
-                    logger.error(f"No users available to set as entity owner for schedule {schedule.name}")
+                    logger.error(f"No squad available to set as entity owner for schedule {schedule.name}")
                     continue
                 
                 # Create the Squadcast schedule

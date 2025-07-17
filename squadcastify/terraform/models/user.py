@@ -17,7 +17,7 @@ UserAbility = Literal[
 ]
 
 # Define valid roles
-UserRole = Literal["stakeholder", "user", "admin"]
+UserRole = Literal["stakeholder", "user", "account_owner"]
 
 
 class SquadcastUser(TerraformResource):
