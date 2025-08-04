@@ -8,8 +8,7 @@ from tqdm import tqdm
 
 from tqdm import tqdm
 
-from squadcastify.source.opsgenie.client.models.escalation import OpsGenieEscalationPolicy
-from squadcastify.source.opsgenie.client.models.schedule import OpsGenieSchedule, OpsGenieRotation
+from squadcastify.source.opsgenie.client.models.schedule import OpsGenieRotation
 from squadcastify.terraform.transformer import Transformer
 
 from .context import MigrationContext
@@ -17,6 +16,7 @@ from .client.api import OpsgenieAPIClient
 from ...terraform.models import (
     SquadcastTeam,
     SquadcastTeamMember,
+    SquadcastTeamRole,
     SquadcastUser,
     SquadcastEscalationPolicy,
     SquadcastSchedule,
@@ -51,6 +51,7 @@ class OpsGenieTransformer(Transformer):
     Attributes:
         client (OpsgenieAPIClient): The OpsGenie API client used to fetch users and teams.
         context (MigrationContext): The migration context for tracking resource mappings.
+        target_team_name (Optional[str]): Optional team name to filter migration to specific team only.
 
     Methods:
         _migrate_users(resources): Migrates users from OpsGenie to SquadcastUser resources.
@@ -61,13 +62,34 @@ class OpsGenieTransformer(Transformer):
 
     client: OpsgenieAPIClient
     context: MigrationContext = field(default_factory=MigrationContext)
+    target_team_name: Optional[str] = None
 
     def _migrate_users(self, resources: List[TerraformResource]) -> None:
         """Migrate users from OpsGenie to Terraform configurations."""
         logger.info("Starting OpsGenie user migration to Terraform")
 
+        # Get target teams to determine which users to migrate
+        target_teams = self._get_target_teams()
+        if self.target_team_name and not target_teams:
+            logger.error("Cannot proceed with user migration - target team not found")
+            return
+        
+        # If filtering by team, only migrate users who are members of target teams
+        if self.target_team_name:
+            team_member_ids = self._get_team_member_ids(target_teams)
+            logger.info(f"Found {len(team_member_ids)} unique users in target team(s)")
+            
+            if not team_member_ids:
+                logger.warning("No users found in target team(s)")
+                return
+        
         opsgenie_users = self.client.users.list_users()
-        logger.info(f"Found {len(opsgenie_users)} users in OpsGenie")
+        logger.info(f"Found {len(opsgenie_users)} total users in OpsGenie")
+
+        # Filter users if team filtering is enabled
+        if self.target_team_name:
+            opsgenie_users = [user for user in opsgenie_users if user.id in team_member_ids]
+            logger.info(f"Filtered to {len(opsgenie_users)} users from target team(s)")
 
         for user in tqdm(opsgenie_users, desc="Migrating users", unit="user"):
             try:
@@ -89,8 +111,12 @@ class OpsGenieTransformer(Transformer):
         """Migrate teams from OpsGenie to Terraform configurations."""
         logger.info("Starting OpsGenie team migration to Terraform")
 
-        opsgenie_teams = self.client.teams.list_teams()
-        logger.info(f"Found {len(opsgenie_teams)} teams in OpsGenie")
+        opsgenie_teams = self._get_target_teams()
+        if self.target_team_name and not opsgenie_teams:
+            logger.error("Cannot proceed with team migration - target team not found")
+            return
+            
+        logger.info(f"Found {len(opsgenie_teams)} team(s) to migrate")
 
         for og_team in tqdm(opsgenie_teams, desc="Migrating teams", unit="team"):
             try:
@@ -101,7 +127,16 @@ class OpsGenieTransformer(Transformer):
                 self.context.add_team(team.id, squadcast_team)
                 team_member_ids = []
 
-                # Add team members
+                # Collect all unique roles for this team
+                team_roles = set()
+                for member in team.members:
+                    if member.role:
+                        team_roles.add(member.role.lower())
+                
+                # Create role data sources for this team
+                role_data_sources = self._create_team_role_data_sources(resources, squadcast_team, team_roles)
+
+                # Add team members with role assignments
                 for member in team.members:
                     if not self.context.has_user(member.id):
                         logger.warning(
@@ -110,13 +145,37 @@ class OpsGenieTransformer(Transformer):
                         continue
 
                     user = self.context.get_user(member.id)
+                    
+                    # Get the role data source for this member
+                    member_role = member.role.lower() if member.role else "user"
+                    role_data_source = role_data_sources.get(member_role)
+                    
+                    if role_data_source:
+                        role_ids = [role_data_source.terraform_id_reference]
+                    else:
+                        # Fallback to default user role if no specific role found
+                        logger.warning(f"No role data source found for role '{member_role}', using default 'user' role")
+                        if "user" in role_data_sources:
+                            role_ids = [role_data_sources["user"].terraform_id_reference]
+                        else:
+                            # Create a default user role data source if it doesn't exist
+                            default_role = SquadcastTeamRole(
+                                name="User",
+                                team_id=squadcast_team.terraform_id_reference,
+                                terraform_name=f"{squadcast_team.terraform_name}_user_role"
+                            )
+                            resources.append(default_role)
+                            role_ids = [default_role.terraform_id_reference]
+                    
                     resources.append(
                         SquadcastTeamMember(
                             team_id=squadcast_team.terraform_id_reference,
                             user_id=user.terraform_id_reference,
+                            role_ids=role_ids
                         )
                     )
                     team_member_ids.append(user.terraform_id_reference)
+                    
                 # Create a Squadcast squad for the team
                 if team_member_ids:
                     squad = self._create_squad_for_team(team.id, team_member_ids)
@@ -147,6 +206,15 @@ class OpsGenieTransformer(Transformer):
         
         opsgenie_policies = self.client.escalation_policies.list_policies()
         logger.info(f"Found {len(opsgenie_policies)} escalation policies in OpsGenie")
+        
+        # Filter policies by target team if specified
+        if self.target_team_name:
+            target_team_ids = {team.id for team in self._get_target_teams()}
+            opsgenie_policies = [
+                policy for policy in opsgenie_policies 
+                if policy.owner_team and policy.owner_team.id in target_team_ids
+            ]
+            logger.info(f"Filtered to {len(opsgenie_policies)} escalation policies for target team(s)")
         
         # Map policies to Squadcast format
         for policy in tqdm(opsgenie_policies, desc="Migrating escalation policies", unit="policy"):
@@ -249,13 +317,13 @@ class OpsGenieTransformer(Transformer):
                     if times > 0 and delay > 0:
                         repeat = Repeat(times=times, delay_minutes=delay)
                 
-                # Find a user to be entity owner (TODO: What can be done better here?)
+                # Use the squad as entity owner
                 entity_owner = None
-                if self.context.users:
-                    first_user_id = next(iter(self.context.users.values())).terraform_id_reference
-                    entity_owner = EntityOwner(id=first_user_id, type="user")
+                if self.context.has_squad(team_id):
+                    squad = self.context.get_squad(team_id)
+                    entity_owner = EntityOwner(id=squad.terraform_id_reference, type="squad")
                 else:
-                    logger.warning(f"No users available for entity_owner in policy {policy.name}")
+                    logger.warning(f"No squad available for entity_owner in policy {policy.name}")
                     continue
                 
                 logger.info(f"Creating Squadcast policy with {len(squadcast_rules)} rules")
@@ -329,6 +397,15 @@ class OpsGenieTransformer(Transformer):
         opsgenie_schedules = self.client.schedules.list_schedules()
         logger.info(f"Found {len(opsgenie_schedules)} schedules in OpsGenie")
         
+        # Filter schedules by target team if specified
+        if self.target_team_name:
+            target_team_ids = {team.id for team in self._get_target_teams()}
+            opsgenie_schedules = [
+                schedule for schedule in opsgenie_schedules 
+                if schedule.owner_team and schedule.owner_team.id in target_team_ids
+            ]
+            logger.info(f"Filtered to {len(opsgenie_schedules)} schedules for target team(s)")
+        
         for schedule in tqdm(opsgenie_schedules, desc="Migrating schedules", unit="schedule"):
             try:
                 logger.info(f"Processing schedule: {schedule.name} (ID: {schedule.id})")
@@ -348,13 +425,13 @@ class OpsGenieTransformer(Transformer):
                 # Get the Squadcast team
                 squadcast_team = self.context.get_team(team_id)
                 
-                # Find a user to be entity owner (using the same approach as in _migrate_escalation_policies)
+                # Use the squad as entity owner
                 entity_owner = None
-                if self.context.users:
-                    first_user_id = next(iter(self.context.users.values())).terraform_id_reference
-                    entity_owner = EntityOwner(id=first_user_id, type="user")
+                if self.context.has_squad(team_id):
+                    squad = self.context.get_squad(team_id)
+                    entity_owner = EntityOwner(id=squad.terraform_id_reference, type="squad")
                 else:
-                    logger.error(f"No users available to set as entity owner for schedule {schedule.name}")
+                    logger.error(f"No squad available to set as entity owner for schedule {schedule.name}")
                     continue
                 
                 # Create the Squadcast schedule
@@ -386,6 +463,7 @@ class OpsGenieTransformer(Transformer):
         
         # Map rotation type to period
         period_map = {
+            "hourly": "daily",
             "daily": "daily",
             "weekly": "weekly",
             "custom": "custom"
@@ -451,7 +529,7 @@ class OpsGenieTransformer(Transformer):
             if restriction_type == "weekday-and-time-of-day" and restrictions:
                 custom_period_unit = "day" if period == "daily" else "week"
                 custom_period_frequency = 1
-                period = "custom"  # Force custom period for time-restricted rotations
+                period = "custom" # Force custom period for time-restricted rotations
 
                 shift_timeslots: List[ShiftTimeslot] = []
                 for restriction in restrictions:
@@ -575,9 +653,69 @@ class OpsGenieTransformer(Transformer):
         self.context.add_rotation(rotation.id, squadcast_rotation)
         logger.info(f"Successfully migrated rotation: {rotation.name}")
     
+    def _get_target_teams(self):
+        """Get the list of teams to migrate based on target_team_name filter."""
+        all_teams = self.client.teams.list_teams()
+        
+        if self.target_team_name:
+            logger.info(f"Filtering migration to team: {self.target_team_name}")
+            target_teams = [team for team in all_teams if team.name.lower() == self.target_team_name.lower()]
+            
+            if not target_teams:
+                logger.error(f"Target team '{self.target_team_name}' not found in OpsGenie")
+                logger.info(f"Available teams: {[team.name for team in all_teams]}")
+                return []
+            
+            logger.info(f"Found target team: {target_teams[0].name} (ID: {target_teams[0].id})")
+            return target_teams
+        else:
+            logger.info("No team filter specified, migrating all teams")
+            return all_teams
+    
+    def _get_team_member_ids(self, target_teams):
+        """Get all user IDs that are members of the target teams."""
+        team_member_ids = set()
+        
+        for team_summary in target_teams:
+            try:
+                team_detail = self.client.teams.get_team(team_summary.id)
+                for member in team_detail.members:
+                    team_member_ids.add(member.id)
+            except Exception as e:
+                logger.error(f"Failed to get team details for {team_summary.name}: {str(e)}")
+        
+        return team_member_ids
+
+    def _create_team_role_data_sources(self, resources: List[TerraformResource], team: SquadcastTeam, roles: set) -> Dict[str, SquadcastTeamRole]:
+        """Create data sources for team roles and return a mapping of role names to data sources."""
+        role_data_sources = {}
+        
+        for role_name in roles:
+            # Normalize role name (capitalize first letter)
+            normalized_role_name = role_name.capitalize()
+            
+            # Create terraform name based on role and team
+            terraform_name = f"{team.terraform_name}_{normalized_role_name.lower()}_role"
+            
+            role_data_source = SquadcastTeamRole(
+                name=normalized_role_name,
+                team_id=team.terraform_id_reference,
+                terraform_name=terraform_name
+            )
+            
+            resources.append(role_data_source)
+            role_data_sources[role_name] = role_data_source
+            
+            logger.info(f"Created role data source: {normalized_role_name} for team {team.name}")
+        
+        return role_data_sources
+
     def transform(self) -> List[TerraformResource]:
         """Transform OpsGenie resources to Terraform configurations and return as a list."""
-        logger.info("🚀 Starting migration from OpsGenie to Terraform")
+        if self.target_team_name:
+            logger.info(f"🚀 Starting filtered migration from OpsGenie to Terraform (Team: {self.target_team_name})")
+        else:
+            logger.info("🚀 Starting migration from OpsGenie to Terraform (All teams)")
 
         resources: List[TerraformResource] = []
 

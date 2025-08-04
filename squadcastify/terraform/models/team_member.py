@@ -1,4 +1,4 @@
-from typing import Optional, Dict
+from typing import Optional, List
 from pydantic import Field, model_validator
 
 from .base import TerraformResource, ReadOnlyField
@@ -20,6 +20,12 @@ class SquadcastTeamMember(TerraformResource):
     team_id: str = Field(..., description="ID of the team this member belongs to")
 
     user_id: str = Field(..., description="ID of the user who is a member of the team")
+    
+    role_ids: List[str] = Field(
+        ...,
+        description="List of role IDs assigned to the user in the team",
+        min_items=1,
+    )
 
     # Read-only fields
     id: Optional[str] = Field(None, description="ID (read-only)", readonly=True)

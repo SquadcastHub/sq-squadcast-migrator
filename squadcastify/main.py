@@ -37,6 +37,7 @@ def main():
                 api_key=settings.opsgenie_api_key,
                 api_url=settings.opsgenie_api_url,
             ),
+            target_team_name=settings.opsgenie_target_team_name
         )
 
         resources = transformer.transform()
@@ -51,6 +52,7 @@ def main():
                 f"✅ Successfully generated Terraform configuration in: {export_result['output_dir']}"
             )
             logger.info(f"📊 Resource counts: {export_result['resource_counts']}")
+            logger.info(f"📊 Data source counts: {export_result['data_source_counts']}")
 
             print("\n" + "=" * 80)
             print("🎉 MIGRATION COMPLETED SUCCESSFULLY!")
