@@ -1,0 +1,19 @@
+name: "PR title checker"
+on:
+  workflow_dispatch:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - synchronize
+      - labeled
+      - unlabeled
+jobs:
+  check-jira:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: solarwinds-cloud/pr-title-checker@v2.0.0
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          pass_on_octokit_error: false
+          configuration_path: ".github/config/pr-title-checker-config.json"

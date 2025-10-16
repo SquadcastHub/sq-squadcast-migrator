@@ -1,0 +1,18 @@
+{
+  "LABEL": {
+    "name": "Missing JIRA",
+    "color": "EEEEEE"
+  },
+  "CHECKS": {
+    "regexp": "^(([\\(\\[]?(([A-Z]+)-([0-9]+))[\\)\\]]?)|([\\[\\(]?(SOP|sop)[\\]\\)]?))\\s.+$",
+    "regexpFlags": "i",
+    "alwaysPassCI": false,
+    "ignoreBots": true,
+    "ignoreUsers": ["squadcast-bot_swi"]
+  },
+  "MESSAGES": {
+    "success": "PR is linked to JIRA",
+    "failure": "PR is not linked to the JIRA item.",
+    "notice": ""
+  }
+}
