@@ -1,18 +1,18 @@
-# Squadcast Migrator Implementation Guides
+# SolarWinds Incident Response Migrator Implementation Guides
 
-Welcome to the Squadcast Migrator implementation guides. These guides provide comprehensive documentation for solution engineers implementing migrations from various alert management systems to Squadcast.
+Welcome to the SolarWinds Incident Response Migrator implementation guides. These guides provide comprehensive documentation for solution engineers implementing migrations from various alert management systems to SolarWinds Incident Response.
 
 ## Getting Started
 
-The Squadcast Migrator consists of two main components:
+The SolarWinds Incident Response Migrator consists of two main components:
 
 1. Source API Clients - Handle communication with source platforms (e.g., OpsGenie)
-2. Transformers - Convert source data into Squadcast Terraform configurations
+2. Transformers - Convert source data into SolarWinds Incident Response Terraform configurations
 
 To implement a new migration source, you'll typically:
 
 1. Create a client to interact with the source API
-2. Implement a transformer to convert source data to Squadcast format
+2. Implement a transformer to convert source data to SolarWinds Incident Response format
 3. Test the migration with sample data
 
 ## Architecture Overview
@@ -30,8 +30,8 @@ The system follows a layered architecture:
 ```
 
 - **Source Clients** handle authentication, API requests, and data retrieval
-- **Transformers** map source data to Squadcast's data model
-- **Terraform Models** define the structure for Squadcast resources
+- **Transformers** map source data to SolarWinds Incident Response's data model
+- **Terraform Models** define the structure for SolarWinds Incident Response resources
 
 ## Available Guides
 
@@ -69,7 +69,7 @@ The client and transformer work in tandem:
 2. **Transformer** processes this data:
    - Uses the client to fetch resources
    - Maintains relationships between resources
-   - Converts to Squadcast's data model
+    - Converts to SolarWinds Incident Response's data model
 
 ### Implementation Patterns
 
@@ -82,7 +82,7 @@ When implementing a new migration source:
 
 2. Then create the transformer:
    - Use the client to fetch data
-   - Map source models to Squadcast models
+    - Map source models to SolarWinds Incident Response models
    - Handle resource dependencies
 
 ## Best Practices
