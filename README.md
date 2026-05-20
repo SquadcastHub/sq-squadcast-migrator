@@ -1,10 +1,12 @@
-# Alerting System to Squadcast Migrator
+# Alerting System to SolarWinds Incident Response (Formerly Squadcast) Migrator
 
-A tool to migrate data from alerting systems like OpsGenie, PagerDuty to Squadcast.
+> **Note:** Squadcast was acquired by SolarWinds in early 2025 and has been rebranded to **SolarWinds Incident Response**. All references to the product in this repository now reflect the new branding. Code identifiers (package names, Terraform resource types, repository name) retain the original naming for backward compatibility.
+
+A tool to migrate data from alerting systems like OpsGenie, PagerDuty to SolarWinds Incident Response.
 
 ## Features
 
-- Migrate data from various alerting systems to Squadcast (users, teams, escalation policies, schedules, squads etc.)
+- Migrate data from various alerting systems to SolarWinds Incident Response (users, teams, escalation policies, schedules, squads etc.)
 - Terraform resource generation for infrastructure-as-code approach
 - Enhanced HCL (HashiCorp Configuration Language) generation with support for complex nested structures
 - Generic testing framework for Terraform resource models
@@ -68,9 +70,7 @@ PAGERDUTY_API_URL=https://api.pagerduty.com
 OPSGENIE_API_KEY=your_opsgenie_api_key_here
 OPSGENIE_API_URL=https://api.opsgenie.com/v2
 
-OPSGENIE_TARGET_TEAM_NAME=ITSM # Optional - pass only if you want to migrated data from a particular team
-
-# Squadcast API Configuration
+# SolarWinds Incident Response API Configuration
 SQUADCAST_REFRESH_TOKEN=your_squadcast_refresh_token_here
 SQUADCAST_REGION=us # or 'eu' depending on your region
 
@@ -92,23 +92,6 @@ To migrate all supported entities:
 ```bash
 uv run -m squadcastify.main
 ```
-
-#### Team-Specific Migration
-
-For OpsGenie migrations, you can filter the migration to a specific team. This is useful when you want to migrate one team at a time or test the migration process on a smaller subset of data.
-
-In order to do this, you need to add `OPSGENIE_TARGET_TEAM_NAME` to the .env file.
-
-```
-OPSGENIE_TARGET_TEAM_NAME=ITSM
-```
-
-When using team filtering, the migrator will only process:
-
-- Users who are members of the specified team
-- The specified team itself
-- Escalation policies owned by the specified team
-- Schedules owned by the specified team
 
 ### Docker CLI Usage
 
@@ -155,7 +138,6 @@ terraform apply
 The migrator generates the following outputs:
 
 1. **Terraform Files** (`.tf`): Located in `terraform_output/` directory
-
    - `main.tf`: Main resource definitions
    - `variables.tf`: Input variables (if any)
    - `outputs.tf`: Output values (if any)
@@ -166,7 +148,7 @@ The migrator generates the following outputs:
 
 ## Terraform Integration
 
-This migrator generates Terraform configuration files for infrastructure-as-code management of your Squadcast resources. The generated `.tf` files can be used with Terraform to manage your Squadcast configuration programmatically.
+This migrator generates Terraform configuration files for infrastructure-as-code management of your SWIR resources. The generated `.tf` files can be used with Terraform to manage your SWIR configuration programmatically.
 
 ### Terraform Resource Models
 
@@ -317,13 +299,11 @@ class SquadcastNewResource(TerraformResource):
 1. **Import Errors**: Ensure all dependencies are installed with `uv pip install .`
 
 2. **API Authentication Failures**:
-
    - Verify your API tokens/keys are correct
    - Check that the API URLs match your region/instance
    - Ensure tokens have the necessary permissions
 
 3. **Terraform Generation Issues**:
-
    - Check the logs in the `logs/` directory for detailed error messages
    - Verify the `terraform_output` directory has write permissions
    - Ensure complex nested data structures are properly formatted
@@ -348,13 +328,11 @@ Enable debug logging by setting `LOG_LEVEL=DEBUG` in your `.env` file for more d
 When contributing to this project:
 
 1. **Adding New Features**:
-
    - Follow the existing code structure and patterns
    - Add comprehensive tests
    - Update documentation and examples
 
 2. **Testing**:
-
    - Run the full test suite before submitting PRs
    - Add tests for any new Terraform resource models
    - Ensure HCL generation is properly tested
